@@ -67,7 +67,8 @@ if __name__ == "__main__":
     MQTT_USER = stem[0]                           # Replace with your mqtt user ID
     MQTT_PASSWORD = stem[1]                       # Replace with your mqtt password
     MQTT_CLIENT_ID = 'RPi'
-    MQTT_PUB_TOPIC1 = 'RPi/ads1115/all'
+    MQTT_SUB_TOPIC1 = 'RPi/ads1115/all'
+    MQTT_PUB_TOPIC1 = 'RPi/ads1115/'
 
     def on_connect(client, userdata, flags, rc):
         """ on connect callback verifies a connection established and subscribe to TOPICs"""
@@ -130,7 +131,7 @@ if __name__ == "__main__":
 
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
 
-    adc = ads1115(2, 5, 0.1, 0.001) # numOfChannels, vref, delay, noiseThreshold
+    adc = ads1115(1, 5, 1, 0.001) # numOfChannels, vref, delay, noiseThreshold
     outgoingD = {}
     incomingD = {}
     newmsg = True
