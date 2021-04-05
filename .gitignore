@@ -130,3 +130,5 @@ dmypy.json
 zOrig_MadcADS1115_4CH_MQTT.py
 .gitignore
 zOrig_MadcMCP3008_8CH_MQTT.py
+adc/zOrig_MadcMCP3008_8CH_TIMEDELAY.py
+adc/zOrig_MadcADS1115_4CH_TIMEDELAY.py
