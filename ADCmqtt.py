@@ -11,7 +11,7 @@ import adc
       
 if __name__ == "__main__":
     
-    logging.basicConfig(level=logging.INFO) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
+    logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
 
     #=======   SETUP MQTT =================#
     # Import mqtt and wifi info. Remove if hard coding in python file
@@ -88,8 +88,8 @@ if __name__ == "__main__":
 
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
 
-    #adc = adc.ads1115(1, 5, 0.001) # numOfChannels, vref, noiseThreshold
-    adc = adc.mcp3008(2, 5, 400) # numOfChannels, vref, noiseThreshold
+    adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold, maxInterval = 1sec
+    #adc = adc.mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold, maxInterval = 1sec, and ChipSelect GPIO pin
     outgoingD = {}
     incomingD = {}
     newmsg = True

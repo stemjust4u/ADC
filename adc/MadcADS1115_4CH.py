@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
-''' This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
-noise threshold then the voltage from all channels will be returned.
+''' MCP3008 adc has 8 channels.  If any channel has a delta (current-previous) that is above the
+noise threshold or if the max Time interval exceeded then the 
+voltage from all channels will be returned.
+ When creating object, pass: Number of channels, Vref, noise threshold, and max time interval
+Will return a list with the voltage value for each channel
+
+To find the noise threshold set noise threshold low and max time interval lowpygame.examples.mask.main()
+
+Max time interval is used to catch drift/creep that is below the noise threshold.
 '''
 
 import busio, board, logging
-from time import sleep
+from time import time, sleep
 import adafruit_ads1x15.ads1115 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 
 class ads1115:
     ''' ADC using ADS1115 (I2C). Returns a list with voltge values '''
-    def __init__(self, numOfChannels, vref, noiseThreshold=0.001, numOfSamples= 10):
+    
+    def __init__(self, numOfChannels, vref, noiseThreshold=0.001, maxInterval=1):
+        ''' Create I2C bus and initialize lists '''
+        
         self.vref = vref
         i2c = busio.I2C(board.SCL, board.SDA)  # Create the I2C bus
         ads = ADS.ADS1115(i2c)   # Create the ADC object using the I2C bus
@@ -22,6 +32,8 @@ class ads1115:
                      AnalogIn(ads, ADS.P3)]
         self.noiseThreshold = noiseThreshold
         self.numOfSamples = 10        # Number of samples to average
+        self.maxInterval = maxInterval  # interval in seconds to check for update
+        self.time0 = time()   # time 0
         # Initialize lists
         self.sensorAve = [x for x in range(self.numOfChannels)]
         self.sensorLastRead = [x for x in range(self.numOfChannels)]
@@ -31,26 +43,32 @@ class ads1115:
             self.sensorLastRead[x] = self.chan[x].value
 
     def getValue(self):
+        ''' If adc is above noise threshold or time limit exceeded will return voltage of each channel '''
+        
         sensorChanged = False
+        timelimit = False
+        if time() - self.time0 > self.maxInterval:
+            timelimit = True
         for x in range(self.numOfChannels):
             for i in range(self.numOfSamples):  # get samples points from analog pin and average
                 self.sensor[x][i] = self.chan[x].voltage
             self.sensorAve[x] = sum(self.sensor[x])/len(self.sensor[x])
             if abs(self.sensorAve[x] - self.sensorLastRead[x]) > self.noiseThreshold:
                 sensorChanged = True
-                logging.debug('changed: {0} chan: {1} value: {2:1.2f} previously: {3:1.2f}'.format(sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
+                logging.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
             self.adcValue[x] = self.sensorAve[x]            
             self.sensorLastRead[x] = self.sensorAve[x]
             #logging.debug('chan: {0} value: {1:1.2f}'.format(x, self.adcValue[x]))
-        if sensorChanged:
-            self.adcValue = ["%.2f"%pin for pin in self.adcValue] #format and send final adc results
+        if sensorChanged or timelimit:
+            self.adcValue = ["%.3f"%pin for pin in self.adcValue] #format and send final adc results
+            self.time0 = time()
             return self.adcValue
         else:
             pass
       
 if __name__ == "__main__":
     
-    adc = ads1115(1, 5, 0.001) # numOfChannels, vref, noiseThreshold
+    adc = ads1115(1, 5, 0.001, 1) # numOfChannels, vref, noiseThreshold
     outgoingD = {}
     while True:
         voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
