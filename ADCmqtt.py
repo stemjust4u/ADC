@@ -2,16 +2,17 @@
 # This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
 # noise threshold then the voltage from all channels will be returned.
 # MQTT version has a publish section in the main code to test MQTT ability stand alone
-import os, busio, digitalio, board, sys, re, json
-from time import time, sleep
+import sys, json, logging
+from time import sleep
 import paho.mqtt.client as mqtt
-import adafruit_ads1x15.ads1115 as ADS
-from adafruit_ads1x15.analog_in import AnalogIn
 from os import path
 from pathlib import Path
 import adc
       
 if __name__ == "__main__":
+    
+    logging.basicConfig(level=logging.INFO) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
+
     #=======   SETUP MQTT =================#
     # Import mqtt and wifi info. Remove if hard coding in python file
     home = str(Path.home())
@@ -22,21 +23,21 @@ if __name__ == "__main__":
     MQTT_SERVER = '10.0.0.115'                    # Replace with IP address of device running mqtt server/broker
     MQTT_USER = stem[0]                           # Replace with your mqtt user ID
     MQTT_PASSWORD = stem[1]                       # Replace with your mqtt password
-    MQTT_CLIENT_ID = 'RPi'
-    MQTT_SUB_TOPIC1 = 'RPi/ads1115/all'
-    MQTT_PUB_TOPIC1 = 'RPi/ads1115/'
+    MQTT_CLIENT_ID = 'RPi4'
+    MQTT_SUB_TOPIC1 = 'RPi/adc/all'
+    MQTT_PUB_TOPIC1 = 'RPi/adc/'
 
     def on_connect(client, userdata, flags, rc):
         """ on connect callback verifies a connection established and subscribe to TOPICs"""
-        print("attempting on_connect")
+        logging.info("attempting on_connect")
         if rc==0:
             mqtt_client.connected = True          # If rc = 0 then successful connection
             client.subscribe(MQTT_SUB_TOPIC1)      # Subscribe to topic
-            print("Successful Connection: {0}".format(str(rc)))
-            print("Subscribed to: {0}\n".format(MQTT_SUB_TOPIC1))
+            logging.info("Successful Connection: {0}".format(str(rc)))
+            logging.info("Subscribed to: {0}\n".format(MQTT_SUB_TOPIC1))
         else:
             mqtt_client.failed_connection = True  # If rc != 0 then failed to connect. Set flag to stop mqtt loop
-            print("Unsuccessful Connection - Code {0}".format(str(rc)))
+            logging.info("Unsuccessful Connection - Code {0}".format(str(rc)))
 
     def on_message(client, userdata, msg):
         """on message callback will receive messages from the server/broker. Must be subscribed to the topic in on_connect"""
@@ -44,21 +45,21 @@ if __name__ == "__main__":
         if msg.topic == MQTT_SUB_TOPIC1:
             incomingD = json.loads(str(msg.payload.decode("utf-8", "ignore")))  # decode the json msg and convert to python dictionary
             newmsg = True
-            #Uncomment prints for debugging. Will print the JSON incoming payload and unpack the converted dictionary
-            #print("Receive: msg on subscribed topic: {0} with payload: {1}".format(msg.topic, str(msg.payload))) 
-            #print("Incoming msg converted (JSON->Dictionary) and unpacking")
-            #for key, value in incomingD.items():
-            #    print("{0}:{1}".format(key, value))
+            # Debugging. Will print the JSON incoming payload and unpack the converted dictionary
+            logging.debug("Receive: msg on subscribed topic: {0} with payload: {1}".format(msg.topic, str(msg.payload))) 
+            logging.debug("Incoming msg converted (JSON->Dictionary) and unpacking")
+            for key, value in incomingD.items():
+                logging.debug("{0}:{1}".format(key, value))
 
     def on_publish(client, userdata, mid):
         """on publish will send data to client"""
-        #Uncomment prints for debugging. Will unpack the dictionary and then the converted JSON payload
-        #print("msg ID: " + str(mid)) 
-        #print("Publish: Unpack outgoing dictionary (Will convert dictionary->JSON)")
-        #for key, value in outgoingD.items():
-        #    print("{0}:{1}".format(key, value))
-        #print("Converted msg published on topic: {0} with JSON payload: {1}\n".format(MQTT_PUB_TOPIC1, json.dumps(outgoingD))) # Uncomment for debugging. Will print the JSON incoming msg
-        pass # DO NOT COMMENT OUT
+        #Debugging. Will unpack the dictionary and then the converted JSON payload
+        logging.debug("msg ID: " + str(mid)) 
+        logging.debug("Publish: Unpack outgoing dictionary (Will convert dictionary->JSON)")
+        for key, value in outgoingD.items():
+            logging.debug("{0}:{1}".format(key, value))
+        logging.debug("Converted msg published on topic: {0} with JSON payload: {1}\n".format(MQTT_PUB_TOPIC1, json.dumps(outgoingD))) # Uncomment for debugging. Will print the JSON incoming msg
+        pass 
 
     def on_disconnect(client, userdata,rc=0):
         logging.debug("DisConnected result code "+str(rc))
@@ -74,12 +75,12 @@ if __name__ == "__main__":
     mqtt_client.on_connect = on_connect    # Bind on connect
     mqtt_client.on_message = on_message    # Bind on message
     mqtt_client.on_publish = on_publish    # Bind on publish
-    print("Connecting to: {0}".format(MQTT_SERVER))
+    logging.info("Connecting to: {0}".format(MQTT_SERVER))
     mqtt_client.connect(MQTT_SERVER, 1883) # Connect to mqtt broker. This is a blocking function. Script will stop while connecting.
     mqtt_client.loop_start()               # Start monitoring loop as asynchronous. Starts a new thread and will process incoming/outgoing messages.
     # Monitor if we're in process of connecting or if the connection failed
     while not mqtt_client.connected and not mqtt_client.failed_connection:
-        print("Waiting")
+        logging.info("Waiting")
         sleep(1)
     if mqtt_client.failed_connection:      # If connection failed then stop the loop and main program. Use the rc code to trouble shoot
         mqtt_client.loop_stop()
@@ -88,7 +89,7 @@ if __name__ == "__main__":
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
 
     #adc = adc.ads1115(1, 5, 0.001) # numOfChannels, vref, noiseThreshold
-    adc = adc.mcp3008(1, 5, 400) # numOfChannels, vref, noiseThreshold
+    adc = adc.mcp3008(2, 5, 400) # numOfChannels, vref, noiseThreshold
     outgoingD = {}
     incomingD = {}
     newmsg = True
@@ -100,3 +101,4 @@ if __name__ == "__main__":
           outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
           i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
         mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
+        sleep(0.05)
