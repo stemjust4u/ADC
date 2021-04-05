@@ -6,6 +6,7 @@ voltage from all channels will be returned.
 Will return a list with the voltage value for each channel
 
 To find the noise threshold set noise threshold low and max time interval lowpygame.examples.mask.main()
+Noise is in Volts
 
 Max time interval is used to catch drift/creep that is below the noise threshold.
 '''
