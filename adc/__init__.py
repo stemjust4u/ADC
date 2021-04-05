@@ -1,0 +1,1 @@
+from .MadcMCP3008_8CH import mcp3008

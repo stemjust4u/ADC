@@ -2,6 +2,7 @@
 # This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
 # noise threshold then the voltage from all channels will be returned.
 # MQTT version has a publish section in the main code to test MQTT ability stand alone
+
 import os, busio, digitalio, board, sys, re, json
 import adafruit_mcp3xxx.mcp3008 as MCP
 from adafruit_mcp3xxx.analog_in import AnalogIn
