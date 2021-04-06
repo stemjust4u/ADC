@@ -2,7 +2,7 @@
 # This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
 # noise threshold then the voltage from all channels will be returned.
 # MQTT version has a publish section in the main code to test MQTT ability stand alone
-import sys, json, logging
+import sys, json, logging, math
 from time import sleep
 import paho.mqtt.client as mqtt
 from os import path
@@ -11,7 +11,7 @@ import adc
 
 if __name__ == "__main__":
     
-    logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
+    logging.basicConfig(level=logging.INFO) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
 
     #=======   SETUP MQTT =================#
     # Import mqtt and wifi info. Remove if hard coding in python file
@@ -87,8 +87,13 @@ if __name__ == "__main__":
         sys.exit()
 
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
-    #adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
-    adc = adc.mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
+    R1 = 10040
+    Vcc = 3.34
+    Bc = 3950
+    Tnom = 23
+    Rntc = 9500
+    adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
+    #adc = adc.mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
     outgoingD = {}
     incomingD = {}
     newmsg = True
@@ -97,7 +102,17 @@ if __name__ == "__main__":
         if voltage is not None:
             i = 0
             for pin in voltage:                               # create dictionary with voltage from each pin
-                outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
+                Vr2 = float(voltage[i])
+                R2=Vr2*R1/(Vcc-Vr2)
+                steinhart = R2 / Rntc
+                print(steinhart)
+                steinhart = math.log(steinhart)
+                steinhart /= Bc
+                steinhart += 1 / (Tnom + 273.15)
+                steinhart = 1 / steinhart
+                steinhart -= 273.15
+                steinhart = "{:.1f}".format(steinhart)
+                outgoingD['a' + str(i) + 'f'] = str(steinhart)  # key=pin:value=voltage 
                 i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
             mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
             sleep(0.05)

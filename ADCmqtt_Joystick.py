@@ -87,6 +87,7 @@ if __name__ == "__main__":
         sys.exit()
 
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
+
     #adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
     adc = adc.mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
     outgoingD = {}
