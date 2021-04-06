@@ -8,7 +8,10 @@ import paho.mqtt.client as mqtt
 from os import path
 from pathlib import Path
 import adc
-      
+
+def button_callback(channel):
+    print("Button was pushed!")
+
 if __name__ == "__main__":
     
     logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.

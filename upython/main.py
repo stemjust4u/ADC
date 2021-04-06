@@ -50,14 +50,15 @@ if __name__ == "__main__":
   incomingD = {}
   newmsg = True
   adc = espADC(2, 3.3, 40, 1)    # Create adc object. Pass numOfChannels, vref, noiseThreshold=35, max Interval = 1
-  button = Pin(4, Pin.IN, Pin.PULL_UP)
+
+  button = Pin(4, Pin.IN, Pin.PULL_UP)  # Create button 
   buttonprev = 1
   while True:
       try:
         mqtt_client.check_msg()
         if newmsg:                 # Place holder if wanting to receive message/instructions
           newmsg = False
-        if button.value() + buttonprev == 1:
+        if button.value() + buttonprev == 1:     # Logic to monitor for button press
           buttonupdated = True
           buttonprev = button.value()
         else:
