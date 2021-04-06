@@ -92,7 +92,7 @@ if __name__ == "__main__":
     Bc = 3950
     Tnom = 23
     Rntc = 9500
-    adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
+    adc = adc.ads1115(1, 0.003, 1, 1) # numOfChannels, noiseThreshold (V), maxInterval = 1sec, gain=1 (+/- 4.1V readings)
     #adc = adc.mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
     outgoingD = {}
     incomingD = {}
@@ -105,7 +105,6 @@ if __name__ == "__main__":
                 Vr2 = float(voltage[i])
                 R2=Vr2*R1/(Vcc-Vr2)
                 steinhart = R2 / Rntc
-                print(steinhart)
                 steinhart = math.log(steinhart)
                 steinhart /= Bc
                 steinhart += 1 / (Tnom + 273.15)
