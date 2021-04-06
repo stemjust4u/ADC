@@ -19,16 +19,10 @@ MQTT_SERVER = '10.0.0.115'
 MQTT_USER = stem[0] 
 MQTT_PASSWORD = stem[1] 
 MQTT_SUB_TOPIC1 = b'espJoystick/motion/all'
-#MQTT_SUB_TOPIC = b'esp/adc/all'
 MQTT_PUB_TOPIC1 = b'espJoystick/motion/XY'
-#MQTT_PUB_TOPIC = b'esp/adc'
 MQTT_CLIENT_ID = ubinascii.hexlify(machine.unique_id())
 WIFI_SSID = stem[2]
 WIFI_PASSWORD = stem[3]
-
-last_message = 0
-checkInterval = 1
-counter = 0
 
 station = network.WLAN(network.STA_IF)
 
