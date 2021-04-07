@@ -8,6 +8,7 @@ import paho.mqtt.client as mqtt
 from os import path
 from pathlib import Path
 import adc
+import RPi.GPIO as GPIO
 
 if __name__ == "__main__":
     
@@ -87,18 +88,32 @@ if __name__ == "__main__":
         sys.exit()
 
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
+    
+    buttonpressed = False
+
+    def button_callback(channel):
+        global buttonpressed
+        buttonpressed = True
+
+    jsbutton = 15
+    GPIO.setup(jsbutton, GPIO.IN, pull_up_down=GPIO.PUD_UP) 
+    GPIO.add_event_detect(jsbutton, GPIO.BOTH, callback=button_callback)
 
     #adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
-    adc = adc.mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
+    adc = adc.mcp3008(2, 3.3, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
     outgoingD = {}
     incomingD = {}
     newmsg = True
     while True:
         voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
-        if voltage is not None:
-            i = 0
-            for pin in voltage:                               # create dictionary with voltage from each pin
-                outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
-                i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
-            mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
+        if buttonpressed or voltage is not None:
+            if voltage is not None:
+                i = 0
+                for pin in voltage:                               # create dictionary with voltage from each pin
+                    outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
+                    i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
+            outgoingD['buttoni'] = str(GPIO.input(jsbutton))
+            #mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
+            buttonpressed = False
+            logging.debug(outgoingD)
             sleep(0.05)
