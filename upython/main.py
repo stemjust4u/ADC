@@ -55,18 +55,19 @@ if __name__ == "__main__":
 
   buttonpressed = False
 
-  def handle_interrupt(pin):
+  def handle_interrupt(pin):    # Create handle interrupt function to update when button pressed
     global buttonpressed
     buttonpressed = True
 
   button = Pin(4, Pin.IN, Pin.PULL_UP)  # Create button 
-  button.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=handle_interrupt)
+  button.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=handle_interrupt) # link interrupt handler to function for pin falling or rising
 
   while True:
       try:
         mqtt_client.check_msg()
         if newmsg:                 # Place holder if wanting to receive message/instructions
           newmsg = False
+        voltage = adc.getValue()
         if buttonpressed or voltage is not None:         # Update if button pressed or voltage changed or time limit hit
           if voltage is not None:
             i = 0
