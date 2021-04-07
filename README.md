@@ -5,126 +5,147 @@
 
 (Pi does not have internal ADC and requires an external MCP3008 or ADS1115)
 
+ADC is analog-to-digital conversion. Analog components, microphone, joystick, battery, output their signal as a varying voltage [ie 0-3.3V, 0-5V]. An ADC is required to convert this to a digital [0-1] signal that can be quantified in your program.  esp32 has built-in ADC capability but the RPis do not (the pins on the RPi take digital, 0-1, input). However an external MCP3008 or ADS1115 ADC can be connected to the RPi and give it analog capability.
+
 [Link to Project Web Site](https://github.com/stemjust4u/ADC)  
 
-![Servos](images/ADCfalstad.gif)
-
+![ADC](images/ADCfalstad.gif#250sq-5rad)  
+[Link to Falstad Circuit Simulator](http://www.falstad.com/circuit/)  
 ## Materials 
-* SG90 servo
-* PCA9685 servo driver (only needed for the Pi0 setup)
-* Raspberry Pi and/or esp32
-* Optional - brackets to hold the servo
-* Optional - servo tester (gives you confidence the servo is functional when trouble shooting your code)
+* MCP3008 (8 channels, 10-Bit [0-1023] using SPI interface)
+* ADS1115  (4 channels, 16-Bit [0-65535] using I2C interface)
+* RPi
+* esp32 (8 channels, GPIOs 32-39, 12-Bit [0-4095])
+* Analog components (I used 2-axis joystick and ntc thermistor for testing)
 ​​
 ### Pi0/PCA9685 Software Requirements​
 In raspi-config make sure i2c is enabled (in the interface menu)  
 `$ sudo apt install python-smbus`  
 `$ sudo apt install i2c-tools`  
-Once the PCA9685 is connected you can confirm the address is 0x40 (assuming address has not been changed) at port 1 with i2cdetect command (searches /dev/i2c-1)  
+Once the ADS1115 is connected you can confirm the address is 0x48 (assuming address has not been changed) with i2cdetect command (searches /dev/i2c-1)  
 `$ sudo i2cdetect -y 1`  
-​Python packages are in requirements on github and include: setuptools, adafruit-blinka, adafruit-circuitpython-servokit, paho-mqtt
+​Python packages are in requirements on github and include: setuptools, adafruit-blinka, adafruit-circuitpython-ads1x15
 
->Servos are low-speed, high-torque motors. Most standard servos have a limited rotation, for example 90, 180 or 270 degrees (continuous servos can rotate a complete 360). Servos are useful for positioning a device like a camera or solar panel. The SG90 I'm working with has a range of ~180 degrees. This needs to be taken into consideration in your node-red dashboard so you don't try and move the servo outside its range.
+### Pi0/MCP3008 Software Requirements  
+In raspi-config make sure spi is enabled (in the interface menu)
+Python packages are in requirements on github and include: adafruit-circuitpython-mcp3xxx
 
-### Some specs on the SG90
-* Weight: 9 g
-* Dimension: 22.2 x 11.8 x 31 mm approx.
-* Stall torque: 1.8 kgf·cm (x 13.88 for oz-in)
-* Operating speed: 0.1 s/60 degree
-* Operating voltage: 4.8 V (~5V)
+**Adafruit_Blinka library provides the CircuitPython support in Python**
 
->Torque is a measure of how much force the servo arm can apply at a distance from the servo shaft. So 13.88 oz-in of torque translates to a little under a 1lb of force 1in from the shaft. (or 7oz of force 2in from the shaft, etc)
+The voltage can be calculated from the raw ADC using the V reference (max Voltage the ADC can convert) and the ADC resolution (10, 12, 16 bit).   
 
-Power usage
-* I saw spikes of 2-2.5W when the servo was turning a long distance. For normal stepping movement it used 0.5W. While idle it was less than 0.05Watts 
+Voltage measured = raw ADC X Vref/ADC resolution  
+(note - the ADS1115 outputs a voltage and no conversion is needed)
 
-# Servo Control with PWM
+So at 12bit and 3.3Vref  
+a raw ADC value of 0:  0 x 3.3/4095 = 0V  
+a raw ADC value of 4095: 4095 x 3.3/4095 = 3.3V  
 
-The SG90 will have 3 connections
-1. Vcc (5V) - usually red -  **Use a separate power supply for the servo**
-2. GND - usually brown/black - **Make sure the ground of the servo, power supply, Pi/esp32 are connected or common.**
-3. PWM signal (50Hz) control - usually white, yellow, or orange.
+An important consideration when using an ADC is if the voltage range you're measuring is within the allowable limits of the ADC/GPIO pins. If it is not within the limits a voltage divider is needed. (R2 = R1(1/(Vin/Vout-1))
 
-![Servos](images/SG90.png#200x-150y-5rad)
+The esp32 pins can only go up to 3.3V so you can not measure a signal greater than that. Projects measuring a 18650 battery (4.2V) require a voltage divider (R1=27k R2=100k) to bring the max voltage to 3.3V
 
-The pulsewidth of the PWM signal is what controls the position of the servo arm.
-50Hz or 1/50 = 20ms (0.02 seconds). To change the position of the servo arm you change the duty cycle.
-The SG90 has an operating range of 1-2ms duty cycle.
-* ~1 ms pulse is all the way to the left (-90 degrees)
-* 1.5 ms pulse is neutral position (0 degrees)
-* ~2 ms pulse is all the way to the right (+90 degrees)
+>A function I use a lot for converting from one unit/range to another unit range is value mapping.
+>Example with a 12 bit adc [0-4095] and 3.3 Vref [0-3.3]  
+>value = raw value read from ADC  
+>istart = 0        ostart = 0  
+>istop = 4095  ostop = 3.3  
+`def valmap(self, value, istart, istop, ostart, ostop):`  
+    `return ostart + (ostop - ostart) * ((value - istart) / (istop - istart))`
 
-The Pi0/PCA9685/SG90 using Adafruit_ServoKit takes the servo input in angles from 0 to 180. This makes the node-red dashboard controller easy to set up (output 0 to 180)
-The esp32 takes the servo input in duty cycle. For the node-red dashboard I use a javascript node to convert between angle and duty cycle. So the user interface is in angles but the value sent to the esp32 is duty cycle.
+# ADC
 
-To convert between pulse width and duty cycle use these formulas
-* Duty Cycle = PulseWidth/Period
-* Period = 1/frequency  
+ADC involves converting a continuous time/amplitude analog signal to a discrete time/amplitude digital signal. Sampling rate and resolution are two important factors.
 
-For the esp32 servo.duty(duty) and a 20ms period
-* duty = PulseWidth*frequency
-* 1ms pulse (-90 degrees): duty = 1*50 = 50 (or 1/20 =  5% DutyCycle)
-* 1.5ms pulse (0 degrees): duty = 1.5*50 = 75 (or 1.5/20 = 7.5% DutyCycle)
-* 2ms pulse (+90 degrees): duty = 2*50 = 100 (or 2/20 = or 10% DutyCycle)
+Sampling rate for ADS1115 ranges from 8 to 860 samples/second. MCP3008 is in the ksps. For simple STEM projects, reading a joystick, monitoring a battery, I have not had issues with sampling rates. When working with audio the sampling rate is critical (CD quality is 44.1ksps)
 
+Resolution for the different ADC in this projects are listed below. Again, more than enough resolution for simple STEM projects.
+MCP3008 (5Vref)= 10 bit or 1024 resolution (4.9mV steps)
+esp32 (3.3Vref) = 12 bit or 4096 resolution (0.8mV steps)
+ADS1115  = 16 bit or 65536 resolution
 
-Duty (50-100) to degrees (0-180) conversion  
-`degrees =  180* ((duty - 50) / 50)`
+In the example below the Y-axis scale would be resolution (10 bit would have 1024 marks)
+And the X-scale (time) would represent sampling. (# of samples per second)  
+![ADC](images/Pcm.svg#250sq-5rad)  
+[CC BY-SA 3.0](https://commons.wikimedia.org/w/index.php?curid=635225)
 
-Degrees (0-180) to duty (50-100) conversion  
-`duty = 50 + (50 * (degrees / 180)`
+ADC converts an analog signal to digital. Its compliment is a DAC which converts the digital signal to analog (audio is another good example for this)  
+![ADC](images/Conversion_AD_DA.png#300y)  
+[By Megodenas - Own work, Public Domain](https://commons.wikimedia.org/w/index.php?curid=36972702)
 
+>​In $ sudo raspi-config make sure SPI and/or I2C is enabled in the interface.  
+Can confirm in $ sudo nano /boot/config.txt  
+dtparam=i2c=on  
+dtparam=spi=on  
+## Rpi/MCP3008
+SPI0 uses 4 pins, MOSI(Din), MISO(Dout), CLK and a CS (chip select) pin. For the CS the github code allows GPIO7 or 8. You can use either pin and pass it when creating the SPI object.
 
-You will need to do some trail-and-error with your specific servo and what range it has. There can be error in the potentiometer sensor used for positioning the servo shaft. 
+Initially I used 5V to power, Vdd, the MCP3008 and for Vref but you need to use a voltage divider on the MISO(Dout) to convert from 5V to 3.3V logic (RPi GPIO pin has 3.3V limit).
+### If using the Joystick Button (switch) you will need to connect the switch (SW) to a GPIO pin. You have two options
+1. Leave Vref at 5V and use another voltage divider to convert the switch down to 3.3V
+2. Move Vref from 5V to 3.3V and connect the switch directly to a GPIO pin. (this is what I did). ** Don't forget to update the code to 3.3V for Vref when you create the mcp3008 object.  
+![ADC](images/RPi-MCP3008-Joystick-Vdivider.png#300x-200y-5rad)
+![ADC](images/RPi-MCP3008-Pin-Diagram.png#250x-200y-5rad)
+#5rad)
 
-![Servo Tester](images/servo-tester.gif#125sq-right)
->A servo tester is a stand-alone unit to test the functionality of a servo. If you are having problems getting any response from the servo in your code you can use a tester to confirm the servo itself is not the problem. The only input required is a 5V source. The tester provides the PWM signal. It has an auto, manual (with a knob), and neutral mode. You can also hook up multiple servos at once.
+## RPi/ADS1115  
+The ADS1115 uses I2C interface so only 2 wires are required for the communication. Data (GPIO2) and Clock (GPIO3). The ADS1115 can run on the 3.3V or 5V (I confirmed the data/clock voltage is the same regardless if you use 3.3V or 5V). There is a gain setting that changes what voltage range you can measure.  
+![ADC](images/RPI-ADS1115-Thermistor-Breadboard.png#250x-200y-5rad)
 
-## Connecting the Servo to PCA9685​
-The PCA9685 was powered by a 5V li-ion battery and the SG90 cable was connected to the Vcc/GND/PWM header.
+## esp32
+For esp32 GPIO32-39 can be used for ADC. (max voltage you can measure is 3.3V)  
+![ADC](images/ADC-joystick-ESP32.png#300x-200y-5rad)
 
-## Connecting the PCA9685 to the Pi0.  
-The PCA9685 uses the I2C interface. 
-* Vcc=5V
-* GRND=GRND
-* SDA=GPIO2
-* SCL=GPIO3
-
-# Connecting SG90 directly to esp32 PWM
-* A 5V li-ion power bank was used to power the SG90.
-* The ground was connected to both the SG90 and esp32.
-* I then used esp32 pins 4 and 5 for the PWM signal to control the two SG90 servos.  
-
-You load the upython scripts /main.py, /boot.py, /umqttsimply.py on to the esp32.  [Directions using Thonny](https://stemjust4u.com/esp32-esp8266)
+You load the upython scripts /main.py, /boot.py, /adc.py, /umqttsimply.py on to the esp32.  [Directions using Thonny](https://stemjust4u.com/esp32-esp8266)
 
 ### MQTT Explorer  
 MQTT Explorer is a great tool for watching messages between your clients and broker. You can also manually enter a topic and send a msg to test your code. This is useful for first setting up your code and trouble shooting.
 
 # Code
-​​PCA9685 servo driver with adafruit-circuitpython-servokit requires adafruit-blinka.  
-Some additional functions to test your servo on the PCA9685.  
-On my SG90 the range was 0- 180 degrees but your servo may differ. 
-* You can change the total angle by setting actuation_range.
-* kit.servo[0].actuation_range = 175
-* If the servo doesn't sweep the full expected range try adjusting the minimum and maximum pulse widths.
-* To set the pulse width range to a minimum of 1000 and a maximum of 2000: kit.servo[0].set_pulse_width_range(1000, 2000)
+​​The external ADC require python packages installed with pip3.  
+MCP3008: adafruit-circuitpython-mcp3xxx  
+ADS1115: adafruit-circuitpython-ads1x15  
+(and these require adafruit-blinka)    
 
-Code can be downloaded from github
-$ git clone https://github.com/stemjust4u/ServoKitPCA9685​
+MQTT is used to communicate readings to a node-red server.
+A max time delay is used to force a reading.
 
-Pi0(PCA9685)
-/pi0adaServoMQTT-forever.py (uses the mqtt loop_forever)
-/pi0adaServoMQTT-start.py (uses the mqtt loop_start)
+RPi
+/ADCmqtt.py (uncomment which ADC you're using, MCP3008 or ADS1115)  
+|-/adc  
+|    |-MadcADS1115_4CH.py (ads1115 module)  
+|    |-MadcMCP3008_8CH.py (mcp3008 module)  
 
-esp32
-/upython/main.py (and boot, umqttsimple files)
+/ADCmqtt_Joystick.py  (uses MCP3008 to read joystick movement including button)
+![ADC](images/mqtt-joystick.png#300x-200y-5rad)  
+For mcp3008: adc = mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold, max time interval, chip select 
+
+/ADCmqtt_ntcThermistor.py  (uses ADS1115 to output Temp from ntc thermistor)
+![ADC](images/mqtt-thermistor.png#300x-200y-5rad)  
+
+For ads1115: adc = ads1115(1, 0.001, 1, 1) # numOfChannels, noiseThreshold, max time interval, Gain  
+
+Gain options. Set the gain to capture the voltage range being measured.  
+|PGA setting |FS (V)|  
+|------------|-------|
+|2/3 |+/- 6.144  |
+|1 |+/- 4.096  |
+|2 |+/- 2.048  |
+|4 |+/- 1.024  |
+|8 |+/- 0.512  |
+|16 |+/- 0.256  |
+ 
+
+For esp32  
+/upython/main.py (and adc, boot, umqttsimple files)  
+
+adc = espADC(2, 3.3, 40, 1) # Create adc object. Pass numOfChannels, vref, noiseThreshold=35, max Interval = 1  
+
+The GPIO pins used for ADC have to be updated in the init of /adc.py module.
+
+**A function was added to monitor a joystick button press on pin 4**
 
 # Node Red
 [Link to MQTT-Node-Red Setup](https://stemjust4u.com/mqtt-influxdb-nodered-grafana)  
-![Node red](images/nodered-servo-gui.gif#5rad)
-![Node red](images/node-red-Pi0.png)
-The esp32 takes a duty value for input so a degree-to-duty conversion is made before publishing.
-![Node red](images/node-red-esp32.png)
 
-The node-red flows can be found at the bottom of the project web site and imported 
-[Link to MQTT Project Web Site](https://stemjust4u.com/ServoKitPCA9685) 
+*Node red info will be added later*
