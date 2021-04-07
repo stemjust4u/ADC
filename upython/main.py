@@ -1,10 +1,12 @@
-from machine import Pin, ADC
+from machine import Pin
 from time import sleep
-import utime, ujson
+import ujson
 from adc import espADC
 
 if __name__ == "__main__":
     
+  micropython.alloc_emergency_exception_buf(100)
+
   def on_message(topic, msg):
     #print("Topic %s msg %s ESP Subscribed to %s" % (topic, msg, MQTT_SUB_TOPIC1))
     global newmsg, incomingD
@@ -51,27 +53,28 @@ if __name__ == "__main__":
   newmsg = True
   adc = espADC(2, 3.3, 40, 1)    # Create adc object. Pass numOfChannels, vref, noiseThreshold=35, max Interval = 1
 
+  buttonpressed = False
+
+  def handle_interrupt(pin):
+    global buttonpressed
+    buttonpressed = True
+
   button = Pin(4, Pin.IN, Pin.PULL_UP)  # Create button 
-  buttonprev = 1
+  button.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=handle_interrupt)
+
   while True:
       try:
         mqtt_client.check_msg()
         if newmsg:                 # Place holder if wanting to receive message/instructions
           newmsg = False
-        if button.value() + buttonprev == 1:     # Logic to monitor for button press
-          buttonupdated = True
-          buttonprev = button.value()
-        else:
-          buttonupdated = False
-          buttonprev = button.value()
-        voltage = adc.getValue()
-        if buttonupdated or voltage is not None:         # Update if button pressed or voltage changed or time limit hit
+        if buttonpressed or voltage is not None:         # Update if button pressed or voltage changed or time limit hit
           if voltage is not None:
             i = 0
             for pin in voltage:
               outgoingD['a' + str(i) + 'f'] = str(voltage[i])             # Get the voltage of each channel
               i += 1
           outgoingD['buttoni'] = str(button.value())
+          buttonpressed = False
           #mqtt_client.publish(MQTT_PUB_TOPIC1, ujson.dumps(outgoingD))  # Convert to JSON and publish voltage of each channel
           #Uncomment prints for debugging. 
           print(ujson.dumps(outgoingD))
