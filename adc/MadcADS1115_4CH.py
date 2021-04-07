@@ -83,7 +83,7 @@ class ads1115:
       
 if __name__ == "__main__":
     
-    adc = ads1115(1, 0.001, 1, 1) # numOfChannels, noiseThreshold, Gain
+    adc = ads1115(1, 0.001, 1, 1) # numOfChannels, noiseThreshold, max time interval, Gain
     outgoingD = {}
     while True:
         voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115

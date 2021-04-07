@@ -87,7 +87,7 @@ class mcp3008:
       
 if __name__ == "__main__":
   
-    adc = mcp3008(2, 5, 400, 1) # numOfChannels, vref, noiseThreshold
+    adc = mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold, max time interval, chip select
     outgoingD = {}
     while True:
         voltage = adc.getValue()
