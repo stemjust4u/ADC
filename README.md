@@ -1,14 +1,13 @@
 <link rel="stylesheet" href="./images/sj4u.css"></link>
 
 # [STEM Just 4 U Home Page](https://stemjust4u.com/)
-## This project connects a small SG90 servo with both the esp32 and a Pi0 
+## This project collects ADC data from RPi with either MCP3008 or ADS1115 along with esp32 and its internal ADC. 
 
-The Pi0 setup will include a PCA9685 16-Channel 12-bit PWM Servo Driver and I2C interface. The esp32 will use its built-in PWM to control the servo. It's possible to use the Pi0's PWM pins to control the servo but there will likely be significant jitter. I had to use the PCA9685 servo driver on the Pi0 setup to make it useable. To communicate instructions, servo angle, to the Pi0/esp32 we will use mqtt/node-red.
+(Pi does not have internal ADC and requires an external MCP3008 or ADS1115)
 
-[Link to MQTT Project Web Site](https://stemjust4u.com/ServoKitPCA9685)  
+[Link to Project Web Site](https://github.com/stemjust4u/ADC)  
 
-![Servos](images/RPi-servo.png#200x-150y-5rad)
-![Servos](images/esp32-servo.png#200x-150y-5rad)
+![Servos](images/ADCfalstad.gif)
 
 ## Materials 
 * SG90 servo
