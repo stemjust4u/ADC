@@ -26,7 +26,7 @@ if __name__ == "__main__":
     MQTT_PASSWORD = stem[1]                       # Replace with your mqtt password
     MQTT_CLIENT_ID = 'RPi4'
     MQTT_SUB_TOPIC1 = 'RPi/adc/all'
-    MQTT_PUB_TOPIC1 = 'RPi/adc/'
+    MQTT_PUB_TOPIC1 = 'RPi4RW/mcp3008/joystick'
 
     def on_connect(client, userdata, flags, rc):
         """ on connect callback verifies a connection established and subscribe to TOPICs"""
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     GPIO.add_event_detect(jsbutton, GPIO.BOTH, callback=button_callback)
 
     #adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
-    adc = adc.mcp3008(2, 3.3, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
+    adc = adc.mcp3008(2, 3.3, 400, 5, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
     outgoingD = {}
     incomingD = {}
     newmsg = True
@@ -113,7 +113,7 @@ if __name__ == "__main__":
                     outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
                     i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
             outgoingD['buttoni'] = str(GPIO.input(jsbutton))
-            #mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
+            mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
             buttonpressed = False
             logging.debug(outgoingD)
             sleep(0.05)

@@ -25,7 +25,7 @@ if __name__ == "__main__":
     MQTT_PASSWORD = stem[1]                       # Replace with your mqtt password
     MQTT_CLIENT_ID = 'RPi4'
     MQTT_SUB_TOPIC1 = 'RPi/adc/all'
-    MQTT_PUB_TOPIC1 = 'RPi/adc/'
+    MQTT_PUB_TOPIC1 = 'RPi4A1/ads1115/ntc'
 
     def on_connect(client, userdata, flags, rc):
         """ on connect callback verifies a connection established and subscribe to TOPICs"""
