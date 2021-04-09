@@ -154,7 +154,11 @@ Node red flow is in github or at bottom of project web site.
 ![Node Red](images/nodered-realtime-graphs.gif#200x-150y-5rad) 
 ![Node Red](images/nodered-ntc.gif#100x-150y-5rad) 
 
-Grafana Charts  
-![Node Red](images/grafana-js-ntc.png#500x-150y)  
-
 ![Node Red](images/nodered-ADC-plotter.png#500x-150y)  
+## Grafana Charts 
+Note - You will need to setup a influxdb for Grafana charts. Influxdb is in the node-red flow.   
+![Node Red](images/grafana-js-ntc.png#500x-150y)  
+![Node Red](images/grafana-setup.png#150x-150y)
+![Node Red](images/grafana-ntc.png#150x-150y)  
+
+
