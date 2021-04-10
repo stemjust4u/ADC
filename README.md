@@ -146,6 +146,19 @@ The GPIO pins used for ADC have to be updated in the init of /adc.py module.
 **A function was added to monitor a joystick button press on pin 4**
 
 # Node Red
-[Link to MQTT-Node-Red Setup](https://stemjust4u.com/mqtt-influxdb-nodered-grafana)  
+[Link to General MQTT-Node-Red Setup](https://stemjust4u.com/mqtt-influxdb-nodered-grafana)  
 
-*Node red info will be added later*
+Node red flow is in github or at bottom of project web site.  
+[ADC Project Web Site](https://stemjust4u.com/adc)
+
+![Node Red](images/nodered-realtime-graphs.gif#200x-150y-5rad) 
+![Node Red](images/nodered-ntc.gif#100x-150y-5rad) 
+
+![Node Red](images/nodered-ADC-plotter.png#500x-150y)  
+## Grafana Charts 
+Note - You will need to setup a influxdb for Grafana charts. Influxdb is in the node-red flow.   
+![Node Red](images/grafana-js-ntc.png#500x-150y)  
+![Node Red](images/grafana-setup.png#150x-150y)
+![Node Red](images/grafana-ntc.png#150x-150y)  
+
+
