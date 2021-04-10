@@ -3,6 +3,7 @@
 # noise threshold then the voltage from all channels will be returned.
 # MQTT version has a publish section in the main code to test MQTT ability stand alone
 import sys, json, logging
+import RPi.GPIO as GPIO
 from time import sleep
 import paho.mqtt.client as mqtt
 from os import path

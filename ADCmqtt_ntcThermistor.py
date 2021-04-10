@@ -3,6 +3,7 @@
 # noise threshold then the voltage from all channels will be returned.
 # MQTT version has a publish section in the main code to test MQTT ability stand alone
 import sys, json, logging, math
+import RPi.GPIO as GPIO
 from time import sleep
 import paho.mqtt.client as mqtt
 from os import path
@@ -98,21 +99,27 @@ if __name__ == "__main__":
     outgoingD = {}
     incomingD = {}
     newmsg = True
-    while True:
-        voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
-        if voltage is not None:
-            i = 0
-            for pin in voltage:                               # create dictionary with voltage from each pin
-                Vr2 = float(voltage[i])
-                R2=Vr2*R1/(Vcc-Vr2)
-                steinhart = R2 / Rntc
-                steinhart = math.log(steinhart)
-                steinhart /= Bc
-                steinhart += 1 / (Tnom + 273.15)
-                steinhart = 1 / steinhart
-                steinhart -= 273.15
-                steinhart = "{:.1f}".format(steinhart)
-                outgoingD['a' + str(i) + 'f'] = str(steinhart)  # key=pin:value=voltage 
-                i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
-            mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
-            sleep(0.05)
+    try:
+        while True:
+            voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
+            if voltage is not None:
+                i = 0
+                for pin in voltage:                               # create dictionary with voltage from each pin
+                    Vr2 = float(voltage[i])
+                    R2=Vr2*R1/(Vcc-Vr2)
+                    steinhart = R2 / Rntc
+                    steinhart = math.log(steinhart)
+                    steinhart /= Bc
+                    steinhart += 1 / (Tnom + 273.15)
+                    steinhart = 1 / steinhart
+                    steinhart -= 273.15
+                    steinhart = "{:.1f}".format(steinhart)
+                    outgoingD['a' + str(i) + 'f'] = str(steinhart)  # key=pin:value=voltage 
+                    i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
+                mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
+                sleep(0.05)
+    except KeyboardInterrupt:
+        logging.info("Pressed ctrl-C")
+    finally:
+        GPIO.cleanup()
+        logging.info("GPIO cleaned up")
