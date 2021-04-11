@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-# This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
-# noise threshold then the voltage from all channels will be returned.
-# MQTT version has a publish section in the main code to test MQTT ability stand alone
+'''
+This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
+ noise threshold then the voltage from all channels will be returned.
+ 
+'''
+
 import sys, json, logging
 import RPi.GPIO as GPIO
 from time import sleep
