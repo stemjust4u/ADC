@@ -1,33 +1,22 @@
 #!/usr/bin/env python3
+
 '''
-This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
- noise threshold then the voltage from all channels will be returned.
+This MCP3008 adc has 8 channels.  If any channel has a delta (current-previous) that is above the
+noise threshold then the voltage from all channels will be returned.
  
+ADS1115 adc has 4 channels.  If any channel has a delta (current-previous) that is above the
+noise threshold or if the max Time interval exceeded then the 
+voltage from all initialized channels will be returned.
+When creating object, pass: Number of channels, noise threshold, max time interval, and gain.
+Will return a list with the voltage value for each channel
 '''
 
 import sys, json, logging
-import RPi.GPIO as GPIO
 from time import sleep
 import paho.mqtt.client as mqtt
 from os import path
 from pathlib import Path
 import adc
-   
-logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
-
-#=======   SETUP MQTT =================#
-# Import mqtt and wifi info. Remove if hard coding in python file
-home = str(Path.home())
-with open(path.join(home, "stem"),"r") as f:
-    stem = f.read().splitlines()
-
-#=======   SETUP MQTT =================#
-MQTT_SERVER = '10.0.0.115'                    # Replace with IP address of device running mqtt server/broker
-MQTT_USER = stem[0]                           # Replace with your mqtt user ID
-MQTT_PASSWORD = stem[1]                       # Replace with your mqtt password
-MQTT_CLIENT_ID = 'RPi4'
-MQTT_SUB_TOPIC1 = 'RPi/adc/all'
-MQTT_PUB_TOPIC1 = 'RPi/adc'
 
 def on_connect(client, userdata, flags, rc):
     """ on connect callback verifies a connection established and subscribe to TOPICs"""
@@ -54,7 +43,7 @@ def on_message(client, userdata, msg):
             logging.debug("{0}:{1}".format(key, value))
 
 def on_publish(client, userdata, mid):
-    """on publish will send data to client"""
+    """on publish will send data to broker"""
     #Debugging. Will unpack the dictionary and then the converted JSON payload
     logging.debug("msg ID: " + str(mid)) 
     logging.debug("Publish: Unpack outgoing dictionary (Will convert dictionary->JSON)")
@@ -67,45 +56,75 @@ def on_disconnect(client, userdata,rc=0):
     logging.debug("DisConnected result code "+str(rc))
     mqtt_client.loop_stop()
 
-#==== start/bind mqtt functions ===========#
-# Create a couple flags to handle a failed attempt at connecting. If user/password is wrong we want to stop the loop.
-mqtt.Client.connected = False          # Flag for initial connection (different than mqtt.Client.is_connected)
-mqtt.Client.failed_connection = False  # Flag for failed initial connection
-# Create our mqtt_client object and bind/link to our callback functions
-mqtt_client = mqtt.Client(MQTT_CLIENT_ID) # Create mqtt_client object
-mqtt_client.username_pw_set(MQTT_USER, MQTT_PASSWORD) # Need user/password to connect to broker
-mqtt_client.on_connect = on_connect    # Bind on connect
-mqtt_client.on_disconnect = on_disconnect    # Bind on disconnect
-mqtt_client.on_message = on_message    # Bind on message
-mqtt_client.on_publish = on_publish    # Bind on publish
-logging.info("Connecting to: {0}".format(MQTT_SERVER))
-mqtt_client.connect(MQTT_SERVER, 1883) # Connect to mqtt broker. This is a blocking function. Script will stop while connecting.
-mqtt_client.loop_start()               # Start monitoring loop as asynchronous. Starts a new thread and will process incoming/outgoing messages.
-# Monitor if we're in process of connecting or if the connection failed
-while not mqtt_client.connected and not mqtt_client.failed_connection:
-    logging.info("Waiting")
-    sleep(1)
-if mqtt_client.failed_connection:      # If connection failed then stop the loop and main program. Use the rc code to trouble shoot
-    mqtt_client.loop_stop()
-    sys.exit()
+def get_login_info(file):
+    ''' Import mqtt and wifi info. Remove if hard coding in python file '''
+    home = str(Path.home())                    # Import mqtt and wifi info. Remove if hard coding in python script
+    with open(path.join(home, file),"r") as f:
+        user_info = f.read().splitlines()
+    return user_info
 
-# MQTT setup is successful. Initialize dictionaries and start the main loop.
-#adc = adc.ads1115(1, 0.003, 1, 1) # numOfChannels, noiseThreshold (V), maxInterval = 1sec, gain=1 (+/-4.1V readings)
-adc = adc.mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
-outgoingD, incomingD = {}, {}
-newmsg = True
-try:
-    while True:
-        voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
-        if voltage is not None:
-            i = 0
-            for pin in voltage:                               # create dictionary with voltage from each pin
-                outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
-                i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
-            mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
-            sleep(0.05)
-except KeyboardInterrupt:
-    logging.info("Pressed ctrl-C")
-finally:
-    GPIO.cleanup()
-    logging.info("GPIO cleaned up")
+def main():
+    ''' define global variables '''
+    global mqtt_client, outgoingD, incomingD, newmsg
+    global MQTT_SUB_TOPIC1, MQTT_PUB_TOPIC1           # Can add more topics for subscribing/publishing
+    global adc
+
+    #==== LOGGING/DEBUGGING ============#
+    logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
+
+    #==== HARDWARE SETUP ===============# 
+    #adc = adc.ads1115(1, 0.003, 1, 1) # numOfChannels, noiseThreshold (V), maxInterval = 1sec, gain=1 (+/-4.1V readings)
+    adc = adc.mcp3008(2, 3.3, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
+    
+    #====   SETUP MQTT =================#
+    user_info = get_login_info("stem")
+    MQTT_SERVER = '10.0.0.115'                    # Replace with IP address of device running mqtt server/broker
+    MQTT_USER = user_info[0]                      # Replace with your mqtt user ID
+    MQTT_PASSWORD = user_info[1]                  # Replace with your mqtt password
+    MQTT_CLIENT_ID = 'RPi4'
+    MQTT_SUB_TOPIC1 = 'RPi/adc/all'
+    MQTT_PUB_TOPIC1 = 'RPi/adc'
+
+    #==== start/bind mqtt functions ===========#
+    # Create a couple flags to handle a failed attempt at connecting. If user/password is wrong we want to stop the loop.
+    mqtt.Client.connected = False          # Flag for initial connection (different than mqtt.Client.is_connected)
+    mqtt.Client.failed_connection = False  # Flag for failed initial connection
+    # Create our mqtt_client object and bind/link to our callback functions
+    mqtt_client = mqtt.Client(MQTT_CLIENT_ID) # Create mqtt_client object
+    mqtt_client.username_pw_set(MQTT_USER, MQTT_PASSWORD) # Need user/password to connect to broker
+    mqtt_client.on_connect = on_connect    # Bind on connect
+    mqtt_client.on_disconnect = on_disconnect    # Bind on disconnect
+    mqtt_client.on_message = on_message    # Bind on message
+    mqtt_client.on_publish = on_publish    # Bind on publish
+    logging.info("Connecting to: {0}".format(MQTT_SERVER))
+    mqtt_client.connect(MQTT_SERVER, 1883) # Connect to mqtt broker. This is a blocking function. Script will stop while connecting.
+    mqtt_client.loop_start()               # Start monitoring loop as asynchronous. Starts a new thread and will process incoming/outgoing messages.
+    # Monitor if we're in process of connecting or if the connection failed
+    while not mqtt_client.connected and not mqtt_client.failed_connection:
+        logging.info("Waiting")
+        sleep(1)
+    if mqtt_client.failed_connection:      # If connection failed then stop the loop and main program. Use the rc code to trouble shoot
+        mqtt_client.loop_stop()
+        sys.exit()
+
+    # MQTT setup is successful. Initialize dictionaries and start the main loop.
+    outgoingD, incomingD = {}, {}
+    newmsg = True
+    try:
+        while True:
+            voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
+            if voltage is not None:
+                i = 0
+                for pin in voltage:                               # create dictionary with voltage from each pin
+                    outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
+                    i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
+                mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
+                sleep(0.05)
+    except KeyboardInterrupt:
+        logging.info("Pressed ctrl-C")
+    finally:
+        # Do any cleanup here
+        logging.info("Cleaned up")
+
+if __name__ == "__main__":
+    main()
