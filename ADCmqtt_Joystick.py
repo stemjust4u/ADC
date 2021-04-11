@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-# This MCP3008 adc is multi channel.  If any channel has a delta (current-previous) that is above the
-# noise threshold then the voltage from all channels will be returned.
-# MQTT version has a publish section in the main code to test MQTT ability stand alone
+
+'''
+Gets data from MCP3008 adc, up to 8 channels. If any channel has a delta (current-previous) that is above the
+noise threshold then the voltage from all channels will be returned.
+ISR call back function used for monitor joystick presses. 
+
+Check Hardware and MQTT setup sections for pin assignments and topics
+
+'''
+
 import sys, json, logging
 import RPi.GPIO as GPIO
 from time import sleep
@@ -11,24 +18,7 @@ from pathlib import Path
 import adc
 import RPi.GPIO as GPIO
 
-if __name__ == "__main__":
-    
-    logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
-
-    #=======   SETUP MQTT =================#
-    # Import mqtt and wifi info. Remove if hard coding in python file
-    home = str(Path.home())
-    with open(path.join(home, "stem"),"r") as f:
-        stem = f.read().splitlines()
-
-    #=======   SETUP MQTT =================#
-    MQTT_SERVER = '10.0.0.115'                    # Replace with IP address of device running mqtt server/broker
-    MQTT_USER = stem[0]                           # Replace with your mqtt user ID
-    MQTT_PASSWORD = stem[1]                       # Replace with your mqtt password
-    MQTT_CLIENT_ID = 'RPi4'
-    MQTT_SUB_TOPIC1 = 'RPi/adc/all'
-    MQTT_PUB_TOPIC1 = 'RPi/mcp3008'
-    #MQTT_PUB_TOPIC1 = 'RPi4RW/mcp3008/joystick'
+if __name__ == "__main__":  # Did not follow main() structure because ISR was missing button presses
 
     def on_connect(client, userdata, flags, rc):
         """ on connect callback verifies a connection established and subscribe to TOPICs"""
@@ -68,16 +58,50 @@ if __name__ == "__main__":
         logging.debug("DisConnected result code "+str(rc))
         mqtt_client.loop_stop()
 
-    #==== start/bind mqtt functions ===========#
-    # Create a couple flags to handle a failed attempt at connecting. If user/password is wrong we want to stop the loop.
+    def get_login_info(file):
+        ''' Import mqtt and wifi info. Remove if hard coding in python file '''
+        home = str(Path.home())                    # Import mqtt and wifi info. Remove if hard coding in python script
+        with open(path.join(home, file),"r") as f:
+            user_info = f.read().splitlines()
+        return user_info
+
+    def button_callback(channel):
+        global buttonpressed
+        buttonpressed = True
+        #print("button")
+
+    #==== LOGGING/DEBUGGING ============#       
+    logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
+
+    #==== HARDWARE SETUP ===============# 
+    buttonpressed = False
+    jsbutton = 15
+    GPIO.setup(jsbutton, GPIO.IN, pull_up_down=GPIO.PUD_UP) 
+    GPIO.add_event_detect(jsbutton, GPIO.BOTH, callback=button_callback)
+    #adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
+    adc = adc.mcp3008(2, 5, 400, 5, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
+
+    #=======   MQTT SETUP ==============#
+    user_info = get_login_info("stem")
+    MQTT_SERVER = '10.0.0.115'                    # Replace with IP address of device running mqtt server/broker
+    MQTT_USER = user_info[0]                      # Replace with your mqtt user ID
+    MQTT_PASSWORD = user_info[1]                  # Replace with your mqtt password
+    MQTT_CLIENT_ID = 'RPi4'
+    MQTT_SUB_TOPIC1 = 'RPi/adc/all'
+    MQTT_PUB_TOPIC1 = 'RPi/mcp3008'
+    #MQTT_PUB_TOPIC1 = 'RPi4RW/mcp3008/joystick'
+
+    #==== START/BIND MQTT FUNCTIONS ====#
+    #Create a couple flags to handle a failed attempt at connecting. If user/password is wrong we want to stop the loop.
     mqtt.Client.connected = False          # Flag for initial connection (different than mqtt.Client.is_connected)
     mqtt.Client.failed_connection = False  # Flag for failed initial connection
     # Create our mqtt_client object and bind/link to our callback functions
     mqtt_client = mqtt.Client(MQTT_CLIENT_ID) # Create mqtt_client object
     mqtt_client.username_pw_set(MQTT_USER, MQTT_PASSWORD) # Need user/password to connect to broker
-    mqtt_client.on_connect = on_connect    # Bind on connect
-    mqtt_client.on_message = on_message    # Bind on message
-    mqtt_client.on_publish = on_publish    # Bind on publish
+    mqtt_client.on_connect = on_connect                   # Bind on connect
+    mqtt_client.on_disconnect = on_disconnect             # Bind on disconnect
+    mqtt_client.on_message = on_message                   # Bind on message
+    mqtt_client.on_publish = on_publish                   # Bind on publish
     logging.info("Connecting to: {0}".format(MQTT_SERVER))
     mqtt_client.connect(MQTT_SERVER, 1883) # Connect to mqtt broker. This is a blocking function. Script will stop while connecting.
     mqtt_client.loop_start()               # Start monitoring loop as asynchronous. Starts a new thread and will process incoming/outgoing messages.
@@ -89,22 +113,9 @@ if __name__ == "__main__":
         mqtt_client.loop_stop()
         sys.exit()
 
+    #==== MAIN LOOP ====================#
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
-    
-    buttonpressed = False
-
-    def button_callback(channel):
-        global buttonpressed
-        buttonpressed = True
-
-    jsbutton = 15
-    GPIO.setup(jsbutton, GPIO.IN, pull_up_down=GPIO.PUD_UP) 
-    GPIO.add_event_detect(jsbutton, GPIO.BOTH, callback=button_callback)
-
-    #adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
-    adc = adc.mcp3008(2, 3.3, 400, 5, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
-    outgoingD = {}
-    incomingD = {}
+    outgoingD, incomingD = {}, {}
     newmsg = True
     while True:
         voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
@@ -118,4 +129,3 @@ if __name__ == "__main__":
             mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
             buttonpressed = False
             logging.debug(outgoingD)
-            sleep(0.05)
