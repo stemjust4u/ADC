@@ -13,16 +13,16 @@ if machine.reset_cause() == machine.DEEPSLEEP_RESET:
     print('woke from a deep sleep')
 
 with open("stem", "rb") as f:
-  stem = f.read().splitlines()
+  user_info = f.read().splitlines()
 
 MQTT_SERVER = '10.0.0.115'
-MQTT_USER = stem[0] 
-MQTT_PASSWORD = stem[1] 
+MQTT_USER = user_info[0] 
+MQTT_PASSWORD = user_info[1] 
 MQTT_SUB_TOPIC1 = b'espJoystick/motion/all'
 MQTT_PUB_TOPIC1 = b'espJoystick/motion/XY'
 MQTT_CLIENT_ID = ubinascii.hexlify(machine.unique_id())
-WIFI_SSID = stem[2]
-WIFI_PASSWORD = stem[3]
+WIFI_SSID = user_info[2]
+WIFI_PASSWORD = user_info[3]
 
 station = network.WLAN(network.STA_IF)
 

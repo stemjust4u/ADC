@@ -39,29 +39,28 @@ if __name__ == "__main__":
   except OSError as e:
     restart_and_reconnect()
 
-  # MQTT setup is successful.
-  # Publish generic status confirmation easily seen on MQTT Explorer
-  # Initialize dictionaries and start the main loop.
+  # MQTT setup is successful. Publish generic status confirmation easily seen on MQTT Explorer
+  # and blink led
   mqtt_client.publish(b"status", b"esp32 connected, entering main loop")
   pin = 2
   led = Pin(pin, Pin.OUT) #2 is the internal LED
   led.value(1)
   sleep(1)
   led.value(0)  # flash led to know main loop starting
-  outgoingD = {}
-  incomingD = {}
-  newmsg = True
-  adc = espADC(2, 3.3, 40, 1)    # Create adc object. Pass numOfChannels, vref, noiseThreshold=35, max Interval = 1
 
-  buttonpressed = False
+  #=== HARDWARE SETUP =====#
+  adc = espADC(2, 3.3, 40, 1)    # Create adc object. Pass numOfChannels, vref, noiseThreshold=35, max Interval = 1
 
   def handle_interrupt(pin):    # Create handle interrupt function to update when button pressed
     global buttonpressed
     buttonpressed = True
-
   button = Pin(4, Pin.IN, Pin.PULL_UP)  # Create button 
   button.irq(trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING, handler=handle_interrupt) # link interrupt handler to function for pin falling or rising
-
+  
+  #=== MAIN LOOP =======#
+  buttonpressed = False
+  outgoingD, incomingD = {}, {}
+  newmsg = True
   while True:
       try:
         mqtt_client.check_msg()
@@ -76,9 +75,9 @@ if __name__ == "__main__":
               i += 1
           outgoingD['buttoni'] = str(button.value())
           buttonpressed = False
-          #mqtt_client.publish(MQTT_PUB_TOPIC1, ujson.dumps(outgoingD))  # Convert to JSON and publish voltage of each channel
+          mqtt_client.publish(MQTT_PUB_TOPIC1, ujson.dumps(outgoingD))  # Convert to JSON and publish voltage of each channel
           #Uncomment prints for debugging. 
-          print(ujson.dumps(outgoingD))
+          #print(ujson.dumps(outgoingD))
           #print("JSON payload: {0}\n".format(ujson.dumps(outgoingD)))
       except OSError as e:
         restart_and_reconnect()
