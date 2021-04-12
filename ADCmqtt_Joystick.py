@@ -87,7 +87,7 @@ if __name__ == "__main__":  # Did not follow main() structure because ISR was mi
                 logging.debug("{0}:{1}".format(key, value))
 
     def on_publish(client, userdata, mid):
-        """on publish will send data to client"""
+        """on publish will send data to broker"""
         #Debugging. Will unpack the dictionary and then the converted JSON payload
         logging.debug("msg ID: " + str(mid)) 
         logging.debug("Publish: Unpack outgoing dictionary (Will convert dictionary->JSON)")
