@@ -1,11 +1,53 @@
 #!/usr/bin/env python3
 
 '''
-Gets data from MCP3008 adc, up to 8 channels. If any channel has a delta (current-previous) that is above the
-noise threshold then the voltage from all channels will be returned.
-ISR call back function used for monitor joystick presses. 
+ADS1115 adc has 4 channels.  If any channel has a delta (current-previous) that is above the
+ noise threshold or if the max Time interval exceeded then the 
+ voltage from all initialized channels will be returned.
+ When creating object, pass: Number of channels, noise threshold, max time interval, gain, and address.
+ Will return a list with the voltage value for each channel
 
-Check Hardware and MQTT setup sections for pin assignments and topics
+ Number of channels (1-4)
+ To find the noise threshold set noise threshold low. Noise is in Volts
+ Max time interval is used to catch drift/creep that is below the noise threshold.
+ Gain options. Set the gain to capture the voltage range being measured.
+  User         FS (V)
+  2/3          +/- 6.144
+  1            +/- 4.096
+  2            +/- 2.048
+  4            +/- 1.024
+  8            +/- 0.512
+  16           +/- 0.256
+
+ Note you can change the I2C address from its default (0x48)
+ To check the address
+ $ sudo i2cdetect -y 1
+ Change the address by connecting the ADDR pin to one of the following
+ 0x48 (1001000) ADR -> GND
+ 0x49 (1001001) ADR -> VDD
+ 0x4A (1001010) ADR -> SDA
+ 0x4B (1001011) ADR -> SCL
+ Then update the address when creating the ads object in the HARDWARE section
+
+MCP3008 adc has 8 channels.  If any channel has a delta (current-previous) that is above the
+ noise threshold or if the max Time interval exceeded then the  voltage from all channels will be returned.
+ When creating object, pass: Number of channels, Vref, noise threshold, max time interval, and CS or CE (chip select)
+ Will return a list with the voltage value for each channel
+ Number of channels (1-8)
+ Vref (3.3 or 5V) ** Important on RPi. If using 5V must use a voltage divider on MISO
+ R2=R1(1/(Vin/Vout-1)) Vin=5V, Vout=3.3V, R1=2.4kohm
+ R2=4.7kohm
+ Noise threshold is in raw ADC - To find the noise threshold set initial threshold low and monitor
+ Max time interval is used to catch drift/creep that is below the noise threshold.
+ CS (chip select) - Uses SPI0 with GPIO 8 (CE0) or GPIO 7 (CE1)
+
+ Requires 4 lines. SCLK, MOSI, MISO, CS
+ You can enable SPI1 with a dtoverlay configured in "/boot/config.txt"
+ dtoverlay=spi1-3cs
+ SPI1 SCLK = GPIO 21
+      MISO = GPIO 19
+      MOSI = GPIO 20
+      CS = GPIO 18(CE0) 17(CE1) 16(CE2)
 
 '''
 
@@ -71,15 +113,15 @@ if __name__ == "__main__":  # Did not follow main() structure because ISR was mi
         #print("button")
 
     #==== LOGGING/DEBUGGING ============#       
-    logging.basicConfig(level=logging.DEBUG) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
+    logging.basicConfig(level=logging.INFO) # Set to CRITICAL to turn logging off. Set to DEBUG to get variables. Set to INFO for status messages.
 
     #==== HARDWARE SETUP ===============# 
     buttonpressed = False
     jsbutton = 15
     GPIO.setup(jsbutton, GPIO.IN, pull_up_down=GPIO.PUD_UP) 
     GPIO.add_event_detect(jsbutton, GPIO.BOTH, callback=button_callback)
-    #adc = adc.ads1115(1, 5, 0.003, 1) # numOfChannels, vref, noiseThreshold (V), maxInterval = 1sec
-    adc = adc.mcp3008(2, 5, 400, 5, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
+    #adc = adc.ads1115(1, 5, 0.003, 1, 0x48) # numOfChannels, vref, noiseThreshold (V), maxInterval, address
+    adc = adc.mcp3008(2, 5, 400, 5, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval, and ChipSelect GPIO pin (7 or 8)
 
     #=======   MQTT SETUP ==============#
     user_info = get_login_info("stem")
