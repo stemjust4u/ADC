@@ -80,10 +80,10 @@ dtparam=spi=on
 ## Rpi/MCP3008
 SPI0 uses 4 pins, MOSI(Din), MISO(Dout), CLK and a CS (chip select) pin. For the CS the github code allows GPIO7 or 8. You can use either pin and pass it when creating the SPI object.
 
-Initially I used 5V to power, Vdd, the MCP3008 and for Vref but you need to use a voltage divider on the MISO(Dout) to convert from 5V to 3.3V logic (RPi GPIO pin has 3.3V limit).
-### If using the Joystick Button (switch) you will need to connect the switch (SW) to a GPIO pin. You have two options
-1. Leave Vref at 5V and use another voltage divider to convert the switch down to 3.3V
-2. Move Vref from 5V to 3.3V and connect the switch directly to a GPIO pin. (this is what I did). ** Don't forget to update the code to 3.3V for Vref when you create the mcp3008 object.  
+I used 5V for power (Vdd) and for Vref but you need to use a voltage divider on the MISO(Dout) to convert from 5V to 3.3V logic since RPi GPIO pin has 3.3V limit.   
+>R2=R1(1/(Vin/Vout-1)) Vin=5V, Vout=3.3V, R1=2.4kohm  
+>R2=4.7kohm  
+
 ![ADC](images/RPi-MCP3008-Joystick-Vdivider.png#300x-200y-5rad)
 ![ADC](images/RPi-MCP3008-Pin-Diagram.png#250x-200y-5rad)
 #5rad)
@@ -123,17 +123,68 @@ For mcp3008: adc = mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshol
 /ADCmqtt_ntcThermistor.py  (uses ADS1115 to output Temp from ntc thermistor)
 ![ADC](images/mqtt-thermistor.png#300x-200y-5rad)  
 
-For ads1115: adc = ads1115(1, 0.001, 1, 1) # numOfChannels, noiseThreshold, max time interval, Gain  
+## Code Sections
+1. MQTT functions defined (along with other functions required)
+2. Logging/debugging control set with level
+    * DEBUG (variables+status prints)
+    * INFO (status prints)
+    * CRITICAL (prints turned off)
+3. Hardware Setup (set pins, create objects for external hardware)
+4. MQTT setup (get server info align topics to match node-red)
+    * SUBSCRIBE TOPIC
+    * PUBLISH TOPIC
+5. Start/bind MQTT functions
+6. Enter main loop
+    * Receive msg/instructions (subscribed) from node-red via mqtt broker/server
+    * Perform actions
+    * Publish status/instructions to node-red via mqtt broker/server
 
-Gain options. Set the gain to capture the voltage range being measured.  
-|PGA setting |FS (V)|  
-|------------|-------|
-|2/3 |+/- 6.144  |
-|1 |+/- 4.096  |
-|2 |+/- 2.048  |
-|4 |+/- 1.024  |
-|8 |+/- 0.512  |
-|16 |+/- 0.256  |
+### ads1115
+ads = ads1115(1, 0.001, 1, 1, 0x48) # numOfChannels, noiseThreshold, max time interval, Gain, Address
+
+>ADS1115 adc has 4 channels. If any channel has a delta (current-previous) that is above the noise threshold or if the max Time interval exceeded then the voltage from all initialized channels will be returned in a list.
+When creating object, pass: Number of channels, noise threshold, max time interval, gain, and address.
+>>Number of channels (1-4)  
+>>Noise threshold in Volts.   
+>>Max time interval is used to catch drift/creep that is below the noise threshold.  
+>>Gain options. Set the gain to capture the voltage range being measured.  
+>>User FS (V)  
+>>2/3   +/- 6.144  
+>>1      +/- 4.096  
+>>2      +/- 2.048  
+>>4      +/- 1.024  
+>>8      +/- 0.512  
+>>16    +/- 0.256  
+>>Note you can change the I2C address from its default (0x48)  
+>>To check the address  
+>>`$ sudo i2cdetect -y 1`  
+>>Change the address by connecting the ADDR pin to one of the following  
+>>0x48 (1001000) ADR -> GND  
+>>0x49 (1001001) ADR -> VDD  
+>>0x4A (1001010) ADR -> SDA  
+>>0x4B (1001011) ADR -> SCL  
+>>Then update the address when creating the ads object in the HARDWARE section  
+
+### mcp3008
+adc = mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold, max time interval, chip select
+
+
+>MCP3008 adc has 8 channels. If any channel has a delta (current-previous) that is above the noise threshold or if the max Time interval exceeded then the voltage from all channels will be returned in a list.
+When creating object, pass: Number of channels, Vref, noise threshold, max time interval, and CS or CE (chip select)
+>>Number of channels (1-8)  
+>>Vref (3.3 or 5V) ** Important on RPi. If using 5V must use a voltage divider on MISO  
+>>R2=R1(1/(Vin/Vout-1)) Vin=5V, Vout=3.3V, R1=2.4kohm  
+>>R2=4.7kohm
+>>Noise threshold is in raw ADC   
+>>Max time interval is used to catch drift/creep that is below the noise threshold.  
+>>CS (chip select) - Uses SPI0 with GPIO 8 (CE0) or GPIO 7 (CE1)  
+>>Requires 4 lines. SCLK, MOSI, MISO, CS  
+>>You can enable SPI1 with a dtoverlay configured in "/boot/config.txt"  
+>>dtoverlay=spi1-3cs  
+>>SPI1 SCLK = GPIO 21  
+>>MISO = GPIO 19  
+>>MOSI = GPIO 20  
+>>CS = GPIO 18(CE0) 17(CE1) 16(CE2)  
  
 
 For esp32  
