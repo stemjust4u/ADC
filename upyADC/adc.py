@@ -18,16 +18,15 @@ from time import sleep
 import utime, ujson
 
 class espADC:
-    def __init__(self, numOfChannels, vref, noiseThreshold=35, maxInterval=1):
+    def __init__(self, pinlist, vref=3.3, noiseThreshold=35, maxInterval=1):
         self.vref = vref
-        self.numOfChannels = numOfChannels
-        self.chan = [x for x in range(self.numOfChannels)]
-        self.chan[0] = ADC(Pin(35))
-        self.chan[1] = ADC(Pin(34))
-        #self.chan[2] = ADC(Pin(32))
-        self.chan[0].atten(ADC.ATTN_11DB) # Full range: 0-3.3V
-        self.chan[1].atten(ADC.ATTN_11DB) # Full range: 0-3.3V
-        #self.chan[2].atten(ADC.ATTN_11DB) # Full range: 0-3.3V   
+        self.numOfChannels = len(pinlist)
+        print("num of channels {0}".format(self.numOfChannels))
+        self.chan = []
+        for i, pin in enumerate(pinlist):
+            self.chan.append(ADC(Pin(pin)))
+            self.chan[i].atten(ADC.ATTN_11DB) # Full range: 0-3.3V
+            print("setup pin:{0} for ADC".format(pin))   
         self.noiseThreshold = noiseThreshold
         self.numOfSamples = 10
         self.sensorAve = [x for x in range(self.numOfChannels)]
