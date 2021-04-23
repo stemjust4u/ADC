@@ -54,7 +54,7 @@ Check Hardware and MQTT setup sections for pin assignments and topics
 '''
 
 import sys, json, logging, re
-from time import sleep
+from time import sleep, perf_counter
 import paho.mqtt.client as mqtt
 from os import path
 from pathlib import Path
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     #==== HARDWARE SETUP ===============# 
     # 
     adcSet = {}  # Can comment out any ADC type not being used
-    adcSet['ads115'] = adc.ads1115(1, 0.003, 1, 1, 0x48) # numOfChannels, noiseThreshold (V), max interval, gain=1 (+/-4.1V readings), address
+    adcSet['ads1115'] = adc.ads1115(1, 0.003, 1, 1, 0x48) # numOfChannels, noiseThreshold (V), max interval, gain=1 (+/-4.1V readings), address
     adcSet['mcp3008'] = adc.mcp3008(2, 3.3, 400, 1, 8) # numOfChannels, vref, noiseThreshold (raw ADC), maxInterval = 1sec, and ChipSelect GPIO pin (7 or 8)
     
     #=======   MQTT SETUP ==============#    
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     MQTT_CLIENT_ID = 'RPi3AP'
     #MQTT_CLIENT_ID = 'RPi0'
 
-    MQTT_PUB_TOPIC = ['pi2nred/', 'ZDATA/' + MQTT_CLIENT_ID] # Final topic is joined at time of publishing based on which ADC is sending data
+    MQTT_PUB_TOPIC = ['pi2nred/', '/' + MQTT_CLIENT_ID] # Final topic is joined at time of publishing based on which ADC is sending data
 
     #==== START/BIND MQTT FUNCTIONS ====#
     # Create a couple flags to handle a failed attempt at connecting. If user/password is wrong we want to stop the loop.
@@ -198,20 +198,21 @@ if __name__ == "__main__":
 
     #==== MAIN LOOP ====================#
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
-
+    t0_sec = perf_counter()
+    msginterval = 0.05
     outgoingD = {}
     try:
         while True:
-            for model, adc in adcSet.items():
-                voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
-                if voltage is not None:
-                    i = 0
-                    for pin in voltage:                                  # create dictionary with voltage from each pin
-                        outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
-                        i += 1                                           # will convert dict-to-json for easy MQTT publish of all pin at once
-                    MQTT_PUB_TOPIC1 = model.join(MQTT_PUB_TOPIC)
-                    mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))  # publish voltage values
-                    sleep(0.05)
+            if (perf_counter() - t0_sec) > msginterval:
+                for model, adc in adcSet.items():
+                    voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
+                    if voltage is not None:
+                        for i, pin in enumerate(voltage):                                  # create dictionary with voltage from each pin
+                            outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
+                        # will convert dict-to-json for easy MQTT publish of all pins at once
+                        MQTT_PUB_TOPIC1 = model.join(MQTT_PUB_TOPIC)
+                        mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))  # publish voltage values
+                t0_sec = perf_counter()
     except KeyboardInterrupt:
         logging.info("Pressed ctrl-C")
     finally:
