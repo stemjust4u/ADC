@@ -50,10 +50,8 @@ while True:
     voltage = adc.getValue()
     if buttonpressed or voltage is not None:         # Update if button pressed or voltage changed or time limit hit
       if voltage is not None:
-        i = 0
-        for pin in voltage:
+        for i,pin in enumerate(voltage):
           outgoingD['a' + str(i) + 'f'] = str(voltage[i])             # Get the voltage of each channel
-          i += 1
       outgoingD['buttoni'] = str(button.value())
       buttonpressed = False
       mqtt_client.publish(MQTT_PUB_TOPIC1, ujson.dumps(outgoingD))  # Convert to JSON and publish voltage of each channel

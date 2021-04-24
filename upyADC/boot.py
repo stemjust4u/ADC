@@ -22,9 +22,12 @@ with open("stem", "rb") as f:
 MQTT_SERVER = '10.0.0.115'
 MQTT_USER = user_info[0] 
 MQTT_PASSWORD = user_info[1] 
-MQTT_SUB_TOPIC1 = b'espJoystick/motion/all'
-MQTT_PUB_TOPIC1 = b'espJoystick/motion/XY'
+MQTT_SUB_TOPIC1 = b'nred2esp/motion/all'
+
 MQTT_CLIENT_ID = ubinascii.hexlify(machine.unique_id())
+
+MQTT_PUB_TOPIC1 = b'esp2nred/adc/esp23'
+
 WIFI_SSID = user_info[2]
 WIFI_PASSWORD = user_info[3]
 
