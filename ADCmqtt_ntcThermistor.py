@@ -123,9 +123,9 @@ if __name__ == "__main__":
             elif incomingID[2] == 'group2B':
                 mqtt_dummy2 = incomingD
         # Debugging. Will print the JSON incoming payload and unpack it
-        #logging.debug("Topic grp0:{0} grp1:{1} grp2:{2}".format(msgmatch.group(0), msgmatch.group(1), msgmatch.group(2)))
+        logging.debug("Topic grp0:{0} grp1:{1} grp2:{2}".format(msgmatch.group(0), msgmatch.group(1), msgmatch.group(2)))
         #incomingD = json.loads(str(msg.payload.decode("utf-8", "ignore")))
-        #logging.debug("Payload type:{0}".format(type(incomingD)))
+        logging.debug("Payload type:{0}".format(type(incomingD)))
         #if isinstance(incomingD, (str, bool, int, float)):
         #    logging.debug(incomingD)
         #elif isinstance(incomingD, list):
@@ -140,8 +140,8 @@ if __name__ == "__main__":
         #Debugging. Will unpack the dictionary and then the converted JSON payload
         logging.debug("msg ID: " + str(mid)) 
         logging.debug("Publish: Unpack outgoing dictionary (Will convert dictionary->JSON)")
-        for key, value in outgoingD.items():
-            logging.debug("{0}:{1}".format(key, value))
+        #for key, value in outgoingD.items():
+        #    logging.debug("{0}:{1}".format(key, value))
         logging.debug("Converted msg published on topic: {0} with JSON payload: {1}\n".format(MQTT_PUB_TOPIC1, json.dumps(outgoingD))) # Uncomment for debugging. Will print the JSON incoming msg
         pass 
 
@@ -199,28 +199,30 @@ if __name__ == "__main__":
     #==== MAIN LOOP ====================#
     # MQTT setup is successful. Initialize dictionaries and start the main loop.
 
-    R1 = 10040
-    Vcc = 3.34
-    Bc = 3950
-    Tnom = 23
-    Rntc = 9500
+    def ntc(voltage, R1=10000, Vcc=3.3, Bc=3950, Tnom=23, Rntc=10000):
+        R1 = 10040
+        Vcc = 3.34
+        Bc = 3950
+        Tnom = 23
+        Rntc = 9500
+
+        R2=voltage*R1/(Vcc-voltage)
+        steinhart = R2 / Rntc
+        steinhart = math.log(steinhart)
+        steinhart /= Bc
+        steinhart += 1 / (Tnom + 273.15)
+        steinhart = 1 / steinhart
+        steinhart -= 273.15
+        return "{:.1f}".format(steinhart)
+        
     outgoingD = {}
-    
     try:
         while True:
             for model, adc in adcSet.items():
                 voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
                 if voltage is not None:
                     for i, pin in enumerate(voltage):                               # create dictionary with voltage from each pin
-                        Vr2 = float(voltage[i])    # Could also send Voltage and do steinhart calc in node-red
-                        R2=Vr2*R1/(Vcc-Vr2)
-                        steinhart = R2 / Rntc
-                        steinhart = math.log(steinhart)
-                        steinhart /= Bc
-                        steinhart += 1 / (Tnom + 273.15)
-                        steinhart = 1 / steinhart
-                        steinhart -= 273.15
-                        steinhart = "{:.1f}".format(steinhart)
+                        steinhart = ntc(float(voltage[i]), 10040, 3.34, 3950, 23, 9500)    # Could also send Voltage and do steinhart calc in node-red
                         outgoingD['a' + str(i) + 'f'] = str(steinhart)  # key=pin:value=voltage 
                     # will convert dict-to-json for easy MQTT publish of all pins at once
                     MQTT_PUB_TOPIC1 = model.join(MQTT_PUB_TOPIC)
