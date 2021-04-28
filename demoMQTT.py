@@ -204,13 +204,13 @@ if __name__ == "__main__":
     try:
         while True:
             if (perf_counter() - t0_sec) > msginterval:
-                for model, adc in adcSet.items():
+                for device, adc in adcSet.items():
                     voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
                     if voltage is not None:
                         for i, pin in enumerate(voltage):                                  # create dictionary with voltage from each pin
                             outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
                         # will convert dict-to-json for easy MQTT publish of all pins at once
-                        MQTT_PUB_TOPIC1 = model.join(MQTT_PUB_TOPIC)
+                        MQTT_PUB_TOPIC1 = device.join(MQTT_PUB_TOPIC)
                         mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))  # publish voltage values
                 t0_sec = perf_counter()
     except KeyboardInterrupt:
