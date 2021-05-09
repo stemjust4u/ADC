@@ -323,7 +323,7 @@ def main():
                     deviceD[device]['data'] = adc.getdata() # Get the readings from each adc
                     if deviceD[device]['data'] is not None:
                         main_logger.debug("{} {}".format(deviceD[device]['pubtopic'], json.dumps(deviceD[device]['data'])))
-                        #mqtt_client.publish(deviceD[device]['pubtopic'], json.dumps(deviceD[device]['data']))
+                        mqtt_client.publish(deviceD[device]['pubtopic'], json.dumps(deviceD[device]['data']))
                 t0_sec = perf_counter()
     except KeyboardInterrupt:
         main_logger.info("Pressed ctrl-C")
