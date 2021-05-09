@@ -221,12 +221,9 @@ if __name__ == "__main__":
             for model, adc in adcSet.items():
                 voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
                 if voltage is not None:
-                    for i, pin in enumerate(voltage):                               # create dictionary with voltage from each pin
-                        steinhart = ntc(float(voltage[i]), 10040, 3.34, 3950, 23, 9500)    # Could also send Voltage and do steinhart calc in node-red
-                        outgoingD['a' + str(i) + 'f'] = str(steinhart)  # key=pin:value=voltage 
-                    # will convert dict-to-json for easy MQTT publish of all pins at once
+                    #steinhart = ntc(float(voltage["a0f"]), 10040, 3.34, 3950, 23, 9500)    # Could also send Voltage and do steinhart calc in node-red
                     MQTT_PUB_TOPIC1 = model.join(MQTT_PUB_TOPIC)
-                    mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))  # publish voltage values
+                    mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(voltage))  # publish voltage values
                     sleep(0.05)
     except KeyboardInterrupt:
         logging.info("Pressed ctrl-C")

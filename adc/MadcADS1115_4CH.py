@@ -82,7 +82,7 @@ class ads1115:
             if abs(self.sensorAve[x] - self.sensorLastRead[x]) > self.noiseThreshold:
                 self.sensorChanged = True
             self.logger.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(self.sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
-            self.adc['a' + str(i) + 'f'] = self.sensorAve[x]            
+            self.adc['a' + str(x) + 'f'] = self.sensorAve[x]            
             self.sensorLastRead[x] = self.sensorAve[x]
         if self.sensorChanged or self.timelimit:
             self.time0 = time()
@@ -92,10 +92,11 @@ class ads1115:
       
 if __name__ == "__main__":
     
+    logging.basicConfig(level=logging.DEBUG)
     logger_ads1115 = logging.getLogger('ads1115')
-    logger_ads1115.setLevel(logging.DEBUG)
+    logger_ads1115.setLevel(logging.INFO)
     adc = ads1115(1, 0.001, 1, 1, 0x48, logger=logger_ads1115) # numOfChannels, noiseThreshold, max time interval, Gain, Address
     while True:
         voltage = adc.getdata() # returns a list with the voltage for each pin that was passed in ads1115
-        if voltage is not None: print(voltage)
+        if voltage is not None: logging.debug(voltage)
         sleep(.05)

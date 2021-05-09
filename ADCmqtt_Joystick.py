@@ -160,13 +160,10 @@ if __name__ == "__main__":  # Did not follow main() structure because ISR was mi
     outgoingD, incomingD = {}, {}
     newmsg = True
     while True:
-        voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
+        voltage = adc.getdata() # returns a dict with the voltage for each pin that was passed in ads1115
         if buttonpressed or voltage is not None:
             if voltage is not None:
-                i = 0
-                for pin in voltage:                               # create dictionary with voltage from each pin
-                    outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
-                    i += 1                                          # will convert dict-to-json for easy MQTT publish of all pin at once
+                outgoingD = voltage
             outgoingD['buttoni'] = str(GPIO.input(jsbutton))
             mqtt_client.publish(MQTT_PUB_TOPIC1, json.dumps(outgoingD))       # publish voltage values
             buttonpressed = False

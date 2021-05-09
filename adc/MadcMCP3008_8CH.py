@@ -94,7 +94,7 @@ class mcp3008:
                 self.logger.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(self.sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
             self.adcValue[x] = self.valmap(self.sensorAve[x], 0, 65535, 0, self.vref) # 4mV change is approx 500
             self.sensorLastRead[x] = self.sensorAve[x]
-            self.adc['a' + str(x) + 'f'] = self.sensorAve[x]
+            self.adc['a' + str(x) + 'f'] = self.adcValue[x]
             self.logger.debug('chan: {0} value: {1:1.3f}'.format(x, self.adcValue[x]))
         if self.sensorChanged or self.timelimit:
             self.time0 = time()
@@ -104,10 +104,11 @@ class mcp3008:
       
 if __name__ == "__main__":
   
+    logging.basicConfig(level=logging.INFO)
     logger_mcp3008 = logging.getLogger('mcp3008')
-    logger_mcp3008.setLevel(logging.INFO)
-    adc_mcp3008 = mcp3008(2, 5, 400, 1, 8, logger_mcp3008) # numOfChannels, vref, noiseThreshold, max time interval, chip select
+    logger_mcp3008.setLevel(logging.DEBUG)
+    adc_mcp3008 = mcp3008(2, 5, 400, 1, 8, logger=logger_mcp3008) # numOfChannels, vref, noiseThreshold, max time interval, chip select
     while True:
         voltage = adc_mcp3008.getdata()
-        if voltage is not None: print(voltage)
+        if voltage is not None: logging.debug(voltage)
         sleep(.05)
