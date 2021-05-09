@@ -67,25 +67,27 @@ class ads1115:
         self.sensor = [[x for x in range(0, self.numOfSamples)] for x in range(0, self.numOfChannels)]
         for x in range(self.numOfChannels): # initialize the first read for comparison later
             self.sensorLastRead[x] = self.chan[x].value
+        self.sensorChanged = False
+        self.timelimit = False
 
     def getdata(self):
         ''' If adc is above noise threshold or time limit exceeded will return voltage of each channel '''
         
-        sensorChanged = False
-        timelimit = False
         if time() - self.time0 > self.maxInterval:
-            timelimit = True
+            self.timelimit = True
         for x in range(self.numOfChannels):
             for i in range(self.numOfSamples):  # get samples points from analog pin and average
                 self.sensor[x][i] = self.chan[x].voltage
             self.sensorAve[x] = sum(self.sensor[x])/len(self.sensor[x])
             if abs(self.sensorAve[x] - self.sensorLastRead[x]) > self.noiseThreshold:
-                sensorChanged = True
-            self.logger.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
+                self.sensorChanged = True
+            self.logger.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(self.sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
             self.adc['a' + str(i) + 'f'] = self.sensorAve[x]            
             self.sensorLastRead[x] = self.sensorAve[x]
-        if sensorChanged or timelimit:
+        if self.sensorChanged or self.timelimit:
             self.time0 = time()
+            self.sensorChanged = False
+            self.timelimit = False
             return self.adc
       
 if __name__ == "__main__":
@@ -93,9 +95,7 @@ if __name__ == "__main__":
     logger_ads1115 = logging.getLogger('ads1115')
     logger_ads1115.setLevel(logging.DEBUG)
     adc = ads1115(1, 0.001, 1, 1, 0x48, logger=logger_ads1115) # numOfChannels, noiseThreshold, max time interval, Gain, Address
-    outgoingD = {}
     while True:
         voltage = adc.getdata() # returns a list with the voltage for each pin that was passed in ads1115
-        if voltage is not None:
-            print(outgoingD)
+        if voltage is not None: print(voltage)
         sleep(.05)

@@ -25,23 +25,31 @@ import busio, digitalio, board, logging
 import adafruit_mcp3xxx.mcp3008 as MCP
 from adafruit_mcp3xxx.analog_in import AnalogIn
 from time import time, sleep
+import sys
 
 class mcp3008:
     ''' ADC using MCP3008 (SPI). Returns a list with voltge values '''
 
-    def __init__(self, numOfChannels, vref, noiseThreshold=350, maxInterval=1, cs=8):
+    def __init__(self, numOfChannels, vref, noiseThreshold=350, maxInterval=1, cs=8, logger=None):
         ''' Create spi connection and initialize lists '''
         
+        if logger is not None:                        # Use logger passed as argument
+            self.logger = logger
+        elif len(logging.getLogger().handlers) == 0:   # Root logger does not exist and no custom logger passed
+            logging.basicConfig(level=logging.INFO)      # Create root logger
+            self.logger = logging.getLogger(__name__)    # Create from root logger
+        else:                                          # Root logger already exists and no custom logger passed
+            self.logger = logging.getLogger(__name__)    # Create from root logger
         self.vref = vref
-        logging.info("MCP3008 using SPI SCLK:GPIO{0} MISO:GPIO{1} MOSI:GPIO{2} CS:GPIO{3}".format(board.SCK, board.MISO, board.MOSI, cs))
+        self.logger.info("MCP3008 using SPI SCLK:GPIO{0} MISO:GPIO{1} MOSI:GPIO{2} CS:GPIO{3}".format(board.SCK, board.MISO, board.MOSI, cs))
         spi = busio.SPI(clock=board.SCK, MISO=board.MISO, MOSI=board.MOSI) # create the spi bus
         if cs == 8:
             cs = digitalio.DigitalInOut(board.D8) # create the cs (chip select). Use GPIO8 (CE0) or GPIO7 (CE1)
         elif cs == 7:
             cs = digitalio.DigitalInOut(board.D7) # create the cs (chip select). Use GPIO8 (CE0) or GPIO7 (CE1)
         else:
-            logging.info("Chip Select pin must be 7 or 8")
-            exit()
+            self.logger.error("Chip Select pin must be 7 or 8")
+            sys.exit()
         mcp = MCP.MCP3008(spi, cs) # create the mcp object. Can pass Vref as last argument
         self.numOfChannels = numOfChannels
         self.chan = [AnalogIn(mcp, MCP.P0), # create analog input channel on pins
@@ -63,46 +71,43 @@ class mcp3008:
         self.sensor = [[x for x in range(0, self.numOfSamples)] for x in range(0, self.numOfChannels)]
         for x in range(self.numOfChannels): # initialize the first read for comparison later
             self.sensorLastRead[x] = self.chan[x].value
+        self.sensorChanged = False
+        self.timelimit = False
+        self.adc = {}   # Container for sending final data
     
     def valmap(self, value, istart, istop, ostart, ostop):
         ''' Used to convert from raw ADC to voltage '''
 
         return ostart + (ostop - ostart) * ((value - istart) / (istop - istart))
 
-    def getValue(self):
+    def getdata(self):
         ''' If adc is above noise threshold or time limit exceeded will return voltage of each channel '''
         
-        sensorChanged = False
-        timelimit = False
         if time() - self.time0 > self.maxInterval:
-            timelimit = True
+            self.timelimit = True
         for x in range(self.numOfChannels):
             for i in range(self.numOfSamples):  # get samples points from analog pin and average
                 self.sensor[x][i] = self.chan[x].value
             self.sensorAve[x] = sum(self.sensor[x])/len(self.sensor[x])
             if abs(self.sensorAve[x] - self.sensorLastRead[x]) > self.noiseThreshold:
-                sensorChanged = True
-                logging.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
+                self.sensorChanged = True
+                self.logger.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(self.sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
             self.adcValue[x] = self.valmap(self.sensorAve[x], 0, 65535, 0, self.vref) # 4mV change is approx 500
             self.sensorLastRead[x] = self.sensorAve[x]
-            #logging.debug('chan: {0} value: {1:1.3f}'.format(x, self.adcValue[x]))
-        if sensorChanged or timelimit:
-            self.adcValue = ["%.3f"%item for item in self.adcValue] #format and send final adc results
+            self.adc['a' + str(x) + 'f'] = self.sensorAve[x]
+            self.logger.debug('chan: {0} value: {1:1.3f}'.format(x, self.adcValue[x]))
+        if self.sensorChanged or self.timelimit:
             self.time0 = time()
-            return self.adcValue
-        else:
-            pass
+            self.sensorChanged = False
+            self.timelimit = False
+            return self.adc
       
 if __name__ == "__main__":
   
-    adc = mcp3008(2, 5, 400, 1, 8) # numOfChannels, vref, noiseThreshold, max time interval, chip select
-    outgoingD = {}
+    logger_mcp3008 = logging.getLogger('mcp3008')
+    logger_mcp3008.setLevel(logging.INFO)
+    adc_mcp3008 = mcp3008(2, 5, 400, 1, 8, logger_mcp3008) # numOfChannels, vref, noiseThreshold, max time interval, chip select
     while True:
-        voltage = adc.getValue()
-        if voltage is not None:
-            i = 0
-            for pin in voltage:                               # create dictionary with voltage from each pin
-                outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
-                i += 1
-            print(outgoingD)
-            sleep(.05)
+        voltage = adc_mcp3008.getdata()
+        if voltage is not None: print(voltage)
+        sleep(.05)
