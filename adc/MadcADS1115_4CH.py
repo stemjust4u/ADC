@@ -37,10 +37,17 @@ from adafruit_ads1x15.analog_in import AnalogIn
 class ads1115:
     ''' ADC using ADS1115 (I2C). Returns a list with voltge values '''
     
-    def __init__(self, numOfChannels=1, noiseThreshold=0.001, maxInterval=1, usergain=1, useraddress=0x48):
+    def __init__(self, numOfChannels=1, noiseThreshold=0.001, maxInterval=1, usergain=1, useraddress=0x48, logger=None):
         ''' Create I2C bus and initialize lists '''
         
-        logging.info("ADS1115 using I2C at address {0}".format(str(useraddress)))
+        if logger is not None:                        # Use logger passed as argument
+            self.logger = logger
+        elif len(logging.getLogger().handlers) == 0:   # Root logger does not exist and no custom logger passed
+            logging.basicConfig(level=logging.INFO)      # Create root logger
+            self.logger = logging.getLogger(__name__)    # Create from root logger
+        else:                                          # Root logger already exists and no custom logger passed
+            self.logger = logging.getLogger(__name__)    # Create from root logger
+        self.logger.info("ADS1115 using I2C at address {0}".format(str(useraddress)))
         i2c = busio.I2C(board.SCL, board.SDA)  # Create the I2C bus
         ads = ADS.ADS1115(i2c, gain=usergain, address=useraddress)   # Create the ADC object using the I2C bus
         self.numOfChannels = numOfChannels
@@ -51,16 +58,17 @@ class ads1115:
         self.noiseThreshold = noiseThreshold
         self.numOfSamples = 10        # Number of samples to average
         self.maxInterval = maxInterval  # interval in seconds to check for update
-        self.time0 = time()   # time 0
+        self.time0 = time()
         # Initialize lists
         self.sensorAve = [x for x in range(self.numOfChannels)]
         self.sensorLastRead = [x for x in range(self.numOfChannels)]
         self.adcValue = [x for x in range(self.numOfChannels)]
+        self.adc = {}  # Dictionary for sending final results
         self.sensor = [[x for x in range(0, self.numOfSamples)] for x in range(0, self.numOfChannels)]
         for x in range(self.numOfChannels): # initialize the first read for comparison later
             self.sensorLastRead[x] = self.chan[x].value
 
-    def getValue(self):
+    def getdata(self):
         ''' If adc is above noise threshold or time limit exceeded will return voltage of each channel '''
         
         sensorChanged = False
@@ -73,27 +81,21 @@ class ads1115:
             self.sensorAve[x] = sum(self.sensor[x])/len(self.sensor[x])
             if abs(self.sensorAve[x] - self.sensorLastRead[x]) > self.noiseThreshold:
                 sensorChanged = True
-                logging.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
-            self.adcValue[x] = self.sensorAve[x]            
+            self.logger.debug('changed: {0} chan: {1} value: {2:1.3f} previously: {3:1.3f}'.format(sensorChanged, x, self.sensorAve[x], self.sensorLastRead[x]))
+            self.adc['a' + str(i) + 'f'] = self.sensorAve[x]            
             self.sensorLastRead[x] = self.sensorAve[x]
-            #logging.debug('chan: {0} value: {1:1.2f}'.format(x, self.adcValue[x]))
         if sensorChanged or timelimit:
-            self.adcValue = ["%.3f"%pin for pin in self.adcValue] #format and send final adc results
             self.time0 = time()
-            return self.adcValue
-        else:
-            pass
+            return self.adc
       
 if __name__ == "__main__":
     
-    adc = ads1115(1, 0.001, 1, 1, 0x48) # numOfChannels, noiseThreshold, max time interval, Gain, Address
+    logger_ads1115 = logging.getLogger('ads1115')
+    logger_ads1115.setLevel(logging.DEBUG)
+    adc = ads1115(1, 0.001, 1, 1, 0x48, logger=logger_ads1115) # numOfChannels, noiseThreshold, max time interval, Gain, Address
     outgoingD = {}
     while True:
-        voltage = adc.getValue() # returns a list with the voltage for each pin that was passed in ads1115
+        voltage = adc.getdata() # returns a list with the voltage for each pin that was passed in ads1115
         if voltage is not None:
-            i = 0
-            for pin in voltage:                               # create dictionary with voltage from each pin
-                outgoingD['a' + str(i) + 'f'] = str(voltage[i])  # key=pin:value=voltage 
-                i += 1
             print(outgoingD)
-            sleep(.05)
+        sleep(.05)
