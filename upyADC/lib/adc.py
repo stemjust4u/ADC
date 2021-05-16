@@ -13,6 +13,7 @@ Max time interval is used to catch drift/creep that is below the noise threshold
 
 from machine import Pin, ADC
 import utime, ulogging
+from timer import TimerFunc
 
 class espADC:
     def __init__(self, pinlist, vref=3.3, noiseThreshold=35, maxInterval=1000, logger=None):
@@ -42,6 +43,7 @@ class espADC:
     def _valmap(self, value, istart, istop, ostart, ostop):
         return ostart + (ostop - ostart) * ((value - istart) / (istop - istart))
 
+    #@TimerFunc  # Can uncomment to see how long it takes to get readings
     def getdata(self):
         sensorChanged = False
         timelimit = False
@@ -50,16 +52,15 @@ class espADC:
         for x in range(self.numOfChannels):
             for i in range(self.numOfSamples):  # get samples points from analog pin and average
                 self.sensor[x][i] = self.chan[x].read()
-                self.logger.debug("chan:{0} raw:{1}".format(x, self.sensor[x][i]))
+                #self.logger.debug("chan:{0} raw:{1}".format(x, self.sensor[x][i]))
             self.sensorAve[x] = sum(self.sensor[x])/len(self.sensor[x])
             if abs(self.sensorAve[x] - self.sensorLastRead[x]) > self.noiseThreshold:
                 sensorChanged = True
-            self.logger.debug("delta from last read: {0}".format(self.sensorAve[x] - self.sensorLastRead[x]))
+            #self.logger.debug("delta from last read: {0}".format(self.sensorAve[x] - self.sensorLastRead[x]))
             self.sensorLastRead[x] = self.sensorAve[x]
             self.voltage['a' + str(x) + 'f'] = self._valmap(self.sensorAve[x], 0, 4095, 0, self.vref) # 4mV change is approx 500
-            self.logger.debug("chan:{0} V:{1}".format(x, self.voltage))
+            #self.logger.debug("chan:{0} V:{1}".format(x, self.voltage))
         if sensorChanged or timelimit:
-            #self.voltage = ["%.3f"%pin for pin in self.voltage] #format and send final adc results
             self.time0 = utime.ticks_ms()
             return self.voltage
 
