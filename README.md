@@ -1,13 +1,13 @@
 <link rel="stylesheet" href="./images/sj4u.css"></link>
 
-# [STEM Just 4 U Home Page](https://stemjust4u.com/)
-## This project collects ADC data from RPi with either MCP3008 or ADS1115 along with esp32 and its internal ADC. 
+## Outline 
+This project collects ADC data from RPi with either MCP3008 or ADS1115 along with esp32 and its internal ADC. 
 
 (Pi does not have internal ADC and requires an external MCP3008 or ADS1115)
 
 ADC is analog-to-digital conversion. Analog components, microphone, joystick, battery, output their signal as a varying voltage [ie 0-3.3V, 0-5V]. An ADC is required to convert this to a digital [0-1] signal that can be quantified in your program.  esp32 has built-in ADC capability but the RPis do not (the pins on the RPi take digital, 0-1, input). However an external MCP3008 or ADS1115 ADC can be connected to the RPi and give it analog capability.
 
-[Link to Project Web Site](https://github.com/stemjust4u/ADC)  
+[Link to General Workflow with MQTT, NodeRed, Hardware, Coding Setup](https://stemjust4u.github.io/ref/data-analysis/workflow/)
 
 ![ADC](images/ADCfalstad.gif#250sq-5rad)  
 [Link to Falstad Circuit Simulator](http://www.falstad.com/circuit/)  
@@ -197,10 +197,8 @@ The GPIO pins used for ADC have to be updated in the init of /adc.py module.
 **A function was added to monitor a joystick button press on pin 4**
 
 # Node Red
-[Link to General MQTT-Node-Red Setup](https://stemjust4u.com/mqtt-influxdb-nodered-grafana)  
 
 Node red flow is in github or at bottom of project web site.  
-[ADC Project Web Site](https://stemjust4u.com/adc)
 
 ![Node Red](images/nodered-realtime-graphs.gif#200x-150y-5rad) 
 ![Node Red](images/nodered-ntc.gif#100x-150y-5rad) 
